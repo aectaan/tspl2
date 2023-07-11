@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Ok, Result};
-use std::{fmt::Display, io::Write};
+use std::{fmt::Display, io::Write, string::ToString};
+use strum_macros::Display;
 
 #[derive(Debug, Clone)]
 pub enum Size {
@@ -44,72 +45,121 @@ pub enum Country {
     Finnish = 358,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum Codepage7Bit {
+    #[strum(serialize = "USA")]
     Usa,
+    #[strum(serialize = "BRI")]
     British,
+    #[strum(serialize = "GER")]
     German,
+    #[strum(serialize = "FRE")]
     French,
+    #[strum(serialize = "DAN")]
     Danish,
+    #[strum(serialize = "ITA")]
     Italian,
+    #[strum(serialize = "SPA")]
     Spanish,
+    #[strum(serialize = "SWE")]
     Swedish,
+    #[strum(serialize = "SWI")]
     Swiss,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum Codepage8Bit {
+    #[strum(serialize = "437")]
     UnitedStates,
+    #[strum(serialize = "737")]
     Greek,
+    #[strum(serialize = "850")]
     Multilingual,
+    #[strum(serialize = "851")]
     Greek1,
+    #[strum(serialize = "852")]
     Slavic,
+    #[strum(serialize = "855")]
     Cyrillic,
+    #[strum(serialize = "857")]
     Turkish,
+    #[strum(serialize = "860")]
     Portuguese,
+    #[strum(serialize = "861")]
     Icelandic,
+    #[strum(serialize = "862")]
     Hebrew,
+    #[strum(serialize = "863")]
     CanadianFrench,
+    #[strum(serialize = "864")]
     Arabic,
+    #[strum(serialize = "865")]
     Nordic,
+    #[strum(serialize = "866")]
     Russian,
+    #[strum(serialize = "869")]
     Greek2,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum CodepageWindows {
+    #[strum(serialize = "1250")]
     CentralEurope,
+    #[strum(serialize = "1251")]
     Cyrillic,
+    #[strum(serialize = "1252")]
     Latin1,
+    #[strum(serialize = "1253")]
     Greek,
+    #[strum(serialize = "1254")]
     Turkish,
+    #[strum(serialize = "1255")]
     Hebrew,
+    #[strum(serialize = "1256")]
     Arabic,
+    #[strum(serialize = "1257")]
     Baltic,
+    #[strum(serialize = "1258")]
     Vietnam,
+    #[strum(serialize = "932")]
     Japanese,
+    #[strum(serialize = "936")]
     ChineseSiplified,
+    #[strum(serialize = "949")]
     Korean,
+    #[strum(serialize = "950")]
     ChineseTraditional,
+    #[strum(serialize = "UTF-8")]
     Utf8,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum CodepageIso {
+    #[strum(serialize = "8859-1")]
     Latin1,
+    #[strum(serialize = "8859-2")]
     Latin2,
+    #[strum(serialize = "8859-3")]
     Latin3,
+    #[strum(serialize = "8859-4")]
     Baltic,
+    #[strum(serialize = "8859-5")]
     Cyrillic,
+    #[strum(serialize = "8859-6")]
     Arabic,
+    #[strum(serialize = "8859-7")]
     Greek,
+    #[strum(serialize = "8859-8")]
     Hebrew,
+    #[strum(serialize = "8859-9")]
     Turkish,
+    #[strum(serialize = "8859-10")]
     Latin6,
+    #[strum(serialize = "8859-15")]
     Latin9,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum Codepage {
     Codepage7Bit(Codepage7Bit),
     Codepage8Bit(Codepage8Bit),
@@ -125,39 +175,193 @@ pub struct Tape {
     gap_offset: Option<Size>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum Selftest {
     /// Print a self-test page with whole printer information.
+    #[strum(serialize = "")]
     All,
     /// Print a pattern to check the status of print head heat line.
+    #[strum(serialize = "PATTERN")]
     Pattern,
     /// Print a self-test page with Ethernet settings.
+    #[strum(serialize = "ETHERNET")]
     Ethernet,
     /// Print a self-test page with Wi-Fi settings.
+    #[strum(serialize = "WLAN")]
     Wlan,
     /// Print a self-test page with RS-232 settings.
+    #[strum(serialize = "RS232")]
     Rs232,
     /// Print a self-test page with printer settings.
+    #[strum(serialize = "SYSTEM")]
     System,
     /// Print a self-test page with emulated language settings.
+    #[strum(serialize = "Z")]
     Z,
     /// Print a self-test page with Bluetooth settings.
+    #[strum(serialize = "BT")]
     Bt,
 }
 
-impl Display for Selftest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::All => write!(f, ""),
-            Self::Pattern => write!(f, "PATTERN"),
-            Self::Ethernet => write!(f, "ETHERNET"),
-            Self::Wlan => write!(f, "WLAN"),
-            Self::Rs232 => write!(f, "RS232"),
-            Self::System => write!(f, "SYSTEM"),
-            Self::Z => write!(f, "Z"),
-            Self::Bt => write!(f, "BT"),
-        }
-    }
+#[derive(Debug, Display)]
+pub enum Barcode {
+    /// Code 128, switching code subset automatically.
+    #[strum(serialize = "128")]
+    Barcode128,
+    /// Code 128, switching code subset manually.
+    #[strum(serialize = "128M")]
+    Barcode128M,
+    /// EAN128, switching code subset automatically.
+    #[strum(serialize = "EAN128")]
+    BarcodeEan128,
+    /// EAN128M, switching code subset manually.
+    #[strum(serialize = "EAN128M")]
+    BarcodeEan128M,
+    /// Interleaved 2 of 5.
+    #[strum(serialize = "25")]
+    Barcode25,
+    /// Interleaved 2 of 5 with check digit.
+    #[strum(serialize = "25C")]
+    Barcode25C,
+    /// Standard 2 of 5.
+    #[strum(serialize = "25S")]
+    Barcode25S,
+    /// Industrial 2 of 5.
+    #[strum(serialize = "25I")]
+    Barcode25I,
+    /// Code 39, switching standard and full ASCII mode automatically
+    #[strum(serialize = "39")]
+    Barcode39,
+    /// Code 39 with check digit.
+    #[strum(serialize = "39C")]
+    Barcode39C,
+    /// Code 93.
+    #[strum(serialize = "93")]
+    Barcode93,
+    /// EAN 13
+    #[strum(serialize = "EAN13")]
+    BarcodeEan13,
+    /// EAN 13 with 2 digits add-on.
+    #[strum(serialize = "EAN13+2")]
+    BarcodeEan13Plus2,
+    /// EAN 13 with 5 digits add-on.
+    #[strum(serialize = "EAN13+5")]
+    BarcodeEan13Plus5,
+    /// EAN 8.
+    #[strum(serialize = "EAN8")]
+    BarcodeEan8,
+    /// EAN 8 with 2 digits add-on.
+    #[strum(serialize = "EAN8+2")]
+    BarcodeEan8Plus2,
+    /// EAN 8 with 5 digits add-on.
+    #[strum(serialize = "EAN8+5")]
+    BarcodeEan8Plus5,
+    /// Codabar.
+    #[strum(serialize = "CODA")]
+    BarcodeCoda,
+    /// Postnet.
+    #[strum(serialize = "POST")]
+    BarcodePost,
+    /// UPC-A
+    #[strum(serialize = "UPCA")]
+    BarcodeUpca,
+    /// UPC-A with 2 digits add-on.
+    #[strum(serialize = "UPCA+2")]
+    BarcodeUpcaPlus2,
+    /// UPC-A with 5 digits add-on.
+    #[strum(serialize = "UPCA+5")]
+    BarcodeUpaPlus5,
+    /// UPC-E
+    #[strum(serialize = "UPCE")]
+    BarcodeUpce,
+    /// UPC-E with 2 digits add-on.
+    #[strum(serialize = "UPCE+2")]
+    BarcodeUpcePlus2,
+    /// UPC-E with 5 digits add-on.
+    #[strum(serialize = "UPCE+5")]
+    BarcodeUpePlus5,
+    /// MSI
+    #[strum(serialize = "MSI")]
+    BarcodeMsi,
+    /// MSI with check digit.
+    #[strum(serialize = "MSIC")]
+    BarcodeMsic,
+    /// PLESSEY.
+    #[strum(serialize = "PLESSEY")]
+    BarcodePlessey,
+    /// China post.
+    #[strum(serialize = "CPOST")]
+    BarcodeCpost,
+    /// ITF14.
+    #[strum(serialize = "ITF14")]
+    BarcodeItf14,
+    /// EAN14.
+    #[strum(serialize = "EAN14")]
+    BarcodeEan14,
+    /// Code 11.
+    #[strum(serialize = "11")]
+    Barcode11,
+    /// Telepen. *Since V6.89EZ.
+    #[strum(serialize = "TELEPEN")]
+    BarcodeTelepen,
+    /// Telepen number. *Since V6.89EZ.
+    #[strum(serialize = "TELEPENN")]
+    BarcodeTelepenN,
+    /// Planet. *Since V6.89EZ.
+    #[strum(serialize = "PLANET")]
+    BarcodePlanet,
+    /// Code 49. *Since V6.89EZ.
+    #[strum(serialize = "CODE49")]
+    BarcodeCode49,
+    /// eutsche Post Identcode. *Since V6.91EZ.
+    #[strum(serialize = "DPI")]
+    BarcodeDpi,
+    /// Deutsche Post Leitcode. *Since V6.91EZ.
+    #[strum(serialize = "DPL")]
+    BarcodeDpl,
+    /// A special use of Code 39. *Since V6.88EZ.
+    #[strum(serialize = "LOGMARS")]
+    BarcodeLogmars,
+}
+
+#[derive(Debug, Display)]
+pub enum HumanReadable {
+    NotReadable = 0,
+    ReadableAlignsToLeft = 1,
+    ReadableAlignsToCenter = 2,
+    ReadableAlignsToRight = 3,
+}
+
+/// Clockwise rotation
+#[derive(Debug, Display)]
+pub enum Rotation {
+    NoRotation = 0,
+    Rotation90 = 90,
+    Rotation180 = 180,
+    Rotation270 = 270,
+}
+
+#[derive(Debug, Display)]
+pub enum Alignment {
+    Default = 0,
+    Left = 1,
+    Center = 2,
+    Right = 3,
+}
+
+/// Specifies width in dots for narrow and wide elements respectively.
+#[derive(Debug, Display)]
+pub enum NarrowWide {
+    #[strum(serialize = "1,1")]
+    N1W1,
+    #[strum(serialize = "1,2")]
+    N1W2,
+    #[strum(serialize = "1,3")]
+    N1W3,
+    #[strum(serialize = "2,5")]
+    N2W5,
+    #[strum(serialize = "3,7")]
+    N3W7,
 }
 
 pub struct Printer {
@@ -351,68 +555,8 @@ impl Printer {
 
     /// This command defines the code page of international character set.
     pub fn codepage(&mut self, codepage: Codepage) -> Result<&mut Self> {
-        let code = match codepage {
-            Codepage::Codepage7Bit(x) => match x {
-                Codepage7Bit::Usa => "USA",
-                Codepage7Bit::British => "BRI",
-                Codepage7Bit::German => "GER",
-                Codepage7Bit::French => "FRE",
-                Codepage7Bit::Danish => "DAN",
-                Codepage7Bit::Italian => "ITA",
-                Codepage7Bit::Spanish => "SPA",
-                Codepage7Bit::Swedish => "SWE",
-                Codepage7Bit::Swiss => "SWI",
-            },
-            Codepage::Codepage8Bit(x) => match x {
-                Codepage8Bit::UnitedStates => "437",
-                Codepage8Bit::Greek => "737",
-                Codepage8Bit::Multilingual => "850",
-                Codepage8Bit::Greek1 => "851",
-                Codepage8Bit::Slavic => "852",
-                Codepage8Bit::Cyrillic => "855",
-                Codepage8Bit::Turkish => "857",
-                Codepage8Bit::Portuguese => "860",
-                Codepage8Bit::Icelandic => "861",
-                Codepage8Bit::Hebrew => "862",
-                Codepage8Bit::CanadianFrench => "863",
-                Codepage8Bit::Arabic => "864",
-                Codepage8Bit::Nordic => "865",
-                Codepage8Bit::Russian => "866",
-                Codepage8Bit::Greek2 => "869",
-            },
-            Codepage::CodepageWindows(x) => match x {
-                CodepageWindows::CentralEurope => "1250",
-                CodepageWindows::Cyrillic => "1251",
-                CodepageWindows::Latin1 => "1252",
-                CodepageWindows::Greek => "1253",
-                CodepageWindows::Turkish => "1254",
-                CodepageWindows::Hebrew => "1255",
-                CodepageWindows::Arabic => "1256",
-                CodepageWindows::Baltic => "1257",
-                CodepageWindows::Vietnam => "1258",
-                CodepageWindows::Japanese => "932",
-                CodepageWindows::ChineseSiplified => "936",
-                CodepageWindows::Korean => "949",
-                CodepageWindows::ChineseTraditional => "950",
-                CodepageWindows::Utf8 => "UTF-8",
-            },
-            Codepage::CodepageIso(x) => match x {
-                CodepageIso::Latin1 => "8859-1",
-                CodepageIso::Latin2 => "8859-2",
-                CodepageIso::Latin3 => "8859-3",
-                CodepageIso::Baltic => "8859-4",
-                CodepageIso::Cyrillic => "8859-5",
-                CodepageIso::Arabic => "8859-6",
-                CodepageIso::Greek => "8859-7",
-                CodepageIso::Hebrew => "8859-8",
-                CodepageIso::Turkish => "8859-9",
-                CodepageIso::Latin6 => "8859-10",
-                CodepageIso::Latin9 => "8859-15",
-            },
-        };
-
         self.file
-            .write_all(format!("CODEPAGE {code}\r\n").as_bytes())?;
+            .write_all(format!("CODEPAGE {codepage}\r\n").as_bytes())?;
 
         Ok(self)
     }
@@ -600,6 +744,41 @@ impl Printer {
     /// This command can design user's own menu with a database resident on the printer.
     pub fn menu(&self) {
         unimplemented!("DIY!");
+    }
+
+    /// This command draws a bar on the label format.
+    pub fn bar(
+        &mut self,
+        x_dots: u16,
+        y_dots: u16,
+        width_dots: u16,
+        height_dots: u16,
+    ) -> Result<&mut Self> {
+        self.file.write_all(
+            format!("BAR {x_dots},{y_dots},{width_dots},{height_dots}\r\n").as_bytes(),
+        )?;
+        Ok(self)
+    }
+
+    /// This command prints 1D barcodes.
+    pub fn barcode(
+        &mut self,
+        x_dots: u16,
+        y_dots: u16,
+        code_type: Barcode,
+        height_dots: u16,
+        human_readable: HumanReadable,
+        rotation: Rotation,
+        narrow_wide: NarrowWide,
+        alignment: Option<Alignment>,
+        content: &str,
+    ) -> Result<&mut Self> {
+        if let Some(alignment) = alignment {
+            self.file.write_all(format!("BARCODE {x_dots},{y_dots},\"{code_type}\",{height_dots},{human_readable},{rotation},{narrow_wide},{alignment}, \"{content}\"\r\n").as_bytes())?;
+        } else {
+            self.file.write_all(format!("BARCODE {x_dots},{y_dots},\"{code_type}\",{height_dots},{human_readable},{rotation},{narrow_wide}, \"{content}\"\r\n").as_bytes())?;
+        }
+        Ok(self)
     }
 }
 
