@@ -1,12 +1,26 @@
 use anyhow::{anyhow, Ok, Result};
-use std::{fmt::Display, io::Write, string::ToString};
+use std::{
+    fmt::Display,
+    fs::File,
+    io::{Read, Write},
+};
 use strum_macros::Display;
 
 #[derive(Debug, Clone)]
 pub enum Size {
     Imperial(f32),
     Metric(f32),
-    Dots(u32),
+    Dots(i32),
+}
+
+impl Size {
+    fn to_dots_raw(&self, resolution: u32) -> i32 {
+        match self {
+            Self::Imperial(x) => (*x * resolution as f32) as i32,
+            Self::Metric(x) => (*x / 25.4 * resolution as f32) as i32,
+            Self::Dots(x) => *x,
+        }
+    }
 }
 
 impl Display for Size {
@@ -373,13 +387,15 @@ pub enum BitmapMode {
 
 pub struct Printer {
     file: std::fs::File,
+    resolution: u32,
 }
 
 impl Printer {
     /// Create a new printer from file. Usually it is somewhere in '/dev/usb/lp*'.
     pub fn new(path: String, tape: Tape) -> Result<Self> {
-        let file = std::fs::File::options().append(true).open(path)?;
-        let mut printer = Self { file };
+        let mut file = std::fs::File::options().read(true).write(true).open(path)?;
+        let resolution = Self::resolution(&mut file)?;
+        let mut printer = Self { file, resolution };
 
         printer
             .size(tape.width, tape.height)?
@@ -394,7 +410,7 @@ impl Printer {
         match height {
             Some(height) => self
                 .file
-                .write_all(format!("SIZE {width},{height}\r\n").as_bytes())?,
+                .write_all(format!("SIZE {width},{height}\r\n",).as_bytes())?,
             None => self
                 .file
                 .write_all(format!("SIZE {width}\r\n").as_bytes())?,
@@ -422,15 +438,20 @@ impl Printer {
     /// If the measurements conflict with the actual size, the GAPDETECT command will not work properly.
     /// This calibration method can be applied to the labels with pre-printed logos or texts.
     ///
-    /// `dots` input tuple represent optional parameters
-    /// dots.0: Paper length (in dots)
-    /// dots.1: Gap length (in dots)
+    /// `calib` input tuple represent optional parameters
+    /// calib.0: Paper length
+    /// calib.1: Gap length
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
-    pub fn gap_detect(&mut self, dots: Option<(u32, u32)>) -> Result<&mut Self> {
-        match dots {
-            Some((x, y)) => self
-                .file
-                .write_all(format!("GAPDETECT {x},{y}\r\n").as_bytes())?,
+    pub fn gap_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
+        match calib {
+            Some((x, y)) => self.file.write_all(
+                format!(
+                    "GAPDETECT {},{}\r\n",
+                    x.to_dots_raw(self.resolution),
+                    y.to_dots_raw(self.resolution)
+                )
+                .as_bytes(),
+            )?,
             None => self.file.write_all("GAPDETECT\r\n".as_bytes())?,
         }
         Ok(self)
@@ -441,15 +462,20 @@ impl Printer {
     /// If the measurements conflict with the actual size, the BLINEDETECT command will not work properly.
     /// This calibration method can be applied to the labels with pre-printed logos or texts.
     ///
-    /// `dots` input tuple represent optional parameters
-    /// dots.0: Paper length (in dots)
-    /// dots.1: Gap length (in dots)
+    /// `calib` input tuple represent optional parameters
+    /// calib.0: Paper length
+    /// calib.1: Gap length
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
-    pub fn bline_detect(&mut self, dots: Option<(u32, u32)>) -> Result<&mut Self> {
-        match dots {
-            Some((x, y)) => self
-                .file
-                .write_all(format!("BLINEDETECT {x},{y}\r\n").as_bytes())?,
+    pub fn bline_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
+        match calib {
+            Some((x, y)) => self.file.write_all(
+                format!(
+                    "BLINEDETECT {},{}\r\n",
+                    x.to_dots_raw(self.resolution),
+                    y.to_dots_raw(self.resolution)
+                )
+                .as_bytes(),
+            )?,
             None => self.file.write_all("BLINEDETECT\r\n".as_bytes())?,
         }
         Ok(self)
@@ -460,15 +486,20 @@ impl Printer {
     /// If the measurements conflict with the actual size, the AUTODETECT command will not work properly.
     /// This calibration method can be applied to the labels with pre-printed logos or texts.
     ///
-    /// `dots` input tuple represent optional parameters
-    /// dots.0: Paper length (in dots)
-    /// dots.1: Gap length (in dots)
+    /// `calib` input tuple represent optional parameters
+    /// calib.0: Paper length
+    /// calib.1: Gap length
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
-    pub fn auto_detect(&mut self, dots: Option<(u32, u32)>) -> Result<&mut Self> {
-        match dots {
-            Some((x, y)) => self
-                .file
-                .write_all(format!("AUTODETECT {x},{y}\r\n").as_bytes())?,
+    pub fn auto_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
+        match calib {
+            Some((x, y)) => self.file.write_all(
+                format!(
+                    "AUTODETECT {},{}\r\n",
+                    x.to_dots_raw(self.resolution),
+                    y.to_dots_raw(self.resolution)
+                )
+                .as_bytes(),
+            )?,
             None => self.file.write_all("AUTODETECT\r\n".as_bytes())?,
         }
         Ok(self)
@@ -530,23 +561,34 @@ impl Printer {
     }
 
     /// This command defines the reference point of the label. The reference (origin) point varies with the print direction.
-    pub fn reference(&mut self, x_dots: u16, y_dots: u16) -> Result<&mut Self> {
-        self.file
-            .write_all(format!("REFERENCE {x_dots},{y_dots}\r\n").as_bytes())?;
+    pub fn reference(&mut self, x: Size, y: Size) -> Result<&mut Self> {
+        self.file.write_all(
+            format!(
+                "REFERENCE {},{}\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution)
+            )
+            .as_bytes(),
+        )?;
 
         Ok(self)
     }
 
     /// This command moves the label’s horizontal and vertical position. A positive value moves the label
     /// further from the printing direction; a negative value moves the label towards the printing direction.
-    pub fn shift(&mut self, x_dots: Option<i16>, y_dots: i16) -> Result<&mut Self> {
-        match x_dots {
-            Some(x_dots) => self
-                .file
-                .write_all(format!("SHIFT {x_dots},{y_dots}\r\n").as_bytes())?,
+    pub fn shift(&mut self, x: Option<Size>, y: Size) -> Result<&mut Self> {
+        match x {
+            Some(x) => self.file.write_all(
+                format!(
+                    "SHIFT {},{}\r\n",
+                    x.to_dots_raw(self.resolution),
+                    y.to_dots_raw(self.resolution)
+                )
+                .as_bytes(),
+            )?,
             None => self
                 .file
-                .write_all(format!("SHIFT {y_dots}\r\n").as_bytes())?,
+                .write_all(format!("SHIFT {}\r\n", y.to_dots_raw(self.resolution)).as_bytes())?,
         }
 
         Ok(self)
@@ -574,15 +616,16 @@ impl Printer {
         Ok(self)
     }
 
-    /// This command feeds label with the specified length. The length is specified by dot.
-    pub fn feed(&mut self, feed_dot: u16) -> Result<&mut Self> {
+    /// This command feeds label with the specified length
+    pub fn feed(&mut self, feed: Size) -> Result<&mut Self> {
+        let feed_dot = feed.to_dots_raw(self.resolution);
         match feed_dot {
             0..=9999 => self
                 .file
                 .write_all(format!("FEED {feed_dot}\r\n").as_bytes())?,
             _ => {
                 return Err(anyhow!(
-                    "feed length must be in range 0..9999, got {:?}",
+                    "feed length must be in range 0..9999 in dots, got {:?}",
                     feed_dot
                 ))
             }
@@ -590,9 +633,10 @@ impl Printer {
         Ok(self)
     }
 
-    /// This command feeds the label in reverse. The length is specified by dot.
+    /// This command feeds the label in reverse.
     /// For TSPL printers only
-    pub fn backup(&mut self, feed_dot: u16) -> Result<&mut Self> {
+    pub fn backup(&mut self, feed: Size) -> Result<&mut Self> {
+        let feed_dot = feed.to_dots_raw(self.resolution);
         match feed_dot {
             0..=9999 => self
                 .file
@@ -609,7 +653,8 @@ impl Printer {
 
     /// This command feeds the label in reverse. The length is specified by dot.
     /// For TSPL2 printers only
-    pub fn backfeed(&mut self, feed_dot: u16) -> Result<&mut Self> {
+    pub fn backfeed(&mut self, feed: Size) -> Result<&mut Self> {
+        let feed_dot = feed.to_dots_raw(self.resolution);
         match feed_dot {
             0..=9999 => self
                 .file
@@ -756,13 +801,20 @@ impl Printer {
     /// This command draws a bar on the label format.
     pub fn bar(
         &mut self,
-        x_dots: u16,
-        y_dots: u16,
-        width_dots: u16,
-        height_dots: u16,
+        x_upper_left: Size,
+        y_upper_left: Size,
+        width: Size,
+        height: Size,
     ) -> Result<&mut Self> {
         self.file.write_all(
-            format!("BAR {x_dots},{y_dots},{width_dots},{height_dots}\r\n").as_bytes(),
+            format!(
+                "BAR {},{},{},{}\r\n",
+                x_upper_left.to_dots_raw(self.resolution),
+                y_upper_left.to_dots_raw(self.resolution),
+                width.to_dots_raw(self.resolution),
+                height.to_dots_raw(self.resolution)
+            )
+            .as_bytes(),
         )?;
         Ok(self)
     }
@@ -770,10 +822,10 @@ impl Printer {
     /// This command prints 1D barcodes.
     pub fn barcode(
         &mut self,
-        x_dots: u16,
-        y_dots: u16,
+        x: Size,
+        y: Size,
         code_type: Barcode,
-        height_dots: u16,
+        height: Size,
         human_readable: HumanReadable,
         rotation: Rotation,
         narrow_wide: NarrowWide,
@@ -781,9 +833,36 @@ impl Printer {
         content: &str,
     ) -> Result<&mut Self> {
         if let Some(alignment) = alignment {
-            self.file.write_all(format!("BARCODE {x_dots},{y_dots},\"{code_type}\",{height_dots},{human_readable},{rotation},{narrow_wide},{alignment}, \"{content}\"\r\n").as_bytes())?;
+            self.file.write_all(
+                format!(
+                    "BARCODE {},{},\"{}\",{},{},{},{},{}, \"{}\"\r\n",
+                    x.to_dots_raw(self.resolution),
+                    y.to_dots_raw(self.resolution),
+                    code_type,
+                    height.to_dots_raw(self.resolution),
+                    human_readable,
+                    rotation,
+                    narrow_wide,
+                    alignment,
+                    content
+                )
+                .as_bytes(),
+            )?;
         } else {
-            self.file.write_all(format!("BARCODE {x_dots},{y_dots},\"{code_type}\",{height_dots},{human_readable},{rotation},{narrow_wide}, \"{content}\"\r\n").as_bytes())?;
+            self.file.write_all(
+                format!(
+                    "BARCODE {},{},\"{}\",{},{},{},{}, \"{}\"\r\n",
+                    x.to_dots_raw(self.resolution),
+                    y.to_dots_raw(self.resolution),
+                    code_type,
+                    height.to_dots_raw(self.resolution),
+                    human_readable,
+                    rotation,
+                    narrow_wide,
+                    content
+                )
+                .as_bytes(),
+            )?;
         }
         Ok(self)
     }
@@ -791,35 +870,59 @@ impl Printer {
     /// This command draws TLC39, TCIF Linked Bar Code 3 of 9, barcode.
     pub fn tlc39(
         &mut self,
-        x_dots: u16,
-        y_dots: u16,
+        x: Size,
+        y: Size,
         rotation: Rotation,
-        height_dots: Option<u16>,
-        narrow_dots: Option<u16>,
-        wide_dots: Option<u16>,
-        cellwidth_dots: Option<u16>,
-        cellheight_dots: Option<u16>,
+        height: Option<Size>,
+        narrow: Option<Size>,
+        wide: Option<Size>,
+        cellwidth: Option<Size>,
+        cellheight: Option<Size>,
         eci_number: &str,
         serial_number: &str,
         additional_data: &str,
     ) -> Result<&mut Self> {
-        let height_dots = height_dots.unwrap_or(40);
-        let narrow_dots = narrow_dots.unwrap_or(2);
-        let wide_dots = wide_dots.unwrap_or(4);
-        let cellwidth_dots = cellwidth_dots.unwrap_or(2);
-        let cellheight_dots = cellheight_dots.unwrap_or(4);
+        let x = x.to_dots_raw(self.resolution);
+        let y = y.to_dots_raw(self.resolution);
+        let height = height
+            .unwrap_or(Size::Dots(40))
+            .to_dots_raw(self.resolution);
+        let narrow = narrow.unwrap_or(Size::Dots(2)).to_dots_raw(self.resolution);
+        let wide = wide.unwrap_or(Size::Dots(4)).to_dots_raw(self.resolution);
+        let cellwidth = cellwidth
+            .unwrap_or(Size::Dots(2))
+            .to_dots_raw(self.resolution);
+        let cellheight = cellheight
+            .unwrap_or(Size::Dots(4))
+            .to_dots_raw(self.resolution);
 
-        self.file.write_all(format!("TLC39 {x_dots},{y_dots},{rotation},{height_dots},{narrow_dots},{wide_dots},{cellwidth_dots},{cellheight_dots}, \"{eci_number},{serial_number},{additional_data}\"\r\n").as_bytes())?;
+        self.file.write_all(
+            format!(
+                "TLC39 {},{},{},{},{},{},{},{}, \"{},{},{}\"\r\n",
+                x,
+                y,
+                rotation,
+                height,
+                narrow,
+                wide,
+                cellwidth,
+                cellheight,
+                eci_number,
+                serial_number,
+                additional_data
+            )
+            .as_bytes(),
+        )?;
         Ok(self)
     }
 
     /// This command draws bitmap images (as opposed to BMP graphic files).
     pub fn bitmap(
         &mut self,
-        x_dots: u16,
-        y_dots: u16,
+        x: Size,
+        y: Size,
         width_bytes: u16,
-        height_dots: u16,
+        height: Size,
         mode: BitmapMode,
         bitmap_data: Vec<u8>,
     ) -> Result<&mut Self> {
@@ -829,27 +932,78 @@ impl Printer {
     /// This command draws rectangles on the label.
     pub fn rectangle(
         &mut self,
-        x_start_dots: u16,
-        y_start_dots: u16,
-        x_end_dots: u16,
-        y_end_dots: u16,
-        thickness_dots: u8,
-        radius: Option<u16>,
+        x_start: Size,
+        y_start: Size,
+        x_end: Size,
+        y_end: Size,
+        thickness: Size,
+        radius: Option<Size>,
     ) -> Result<&mut Self> {
         self.file.write_all(
             format!(
                 "BOX {},{},{},{},{},{}\r\n",
-                x_start_dots,
-                y_start_dots,
-                x_end_dots,
-                y_end_dots,
-                thickness_dots,
-                radius.unwrap_or(0)
+                x_start.to_dots_raw(self.resolution),
+                y_start.to_dots_raw(self.resolution),
+                x_end.to_dots_raw(self.resolution),
+                y_end.to_dots_raw(self.resolution),
+                thickness.to_dots_raw(self.resolution),
+                radius.unwrap_or(Size::Dots(0)).to_dots_raw(self.resolution)
             )
             .as_bytes(),
         )?;
 
         Ok(self)
+    }
+
+    /// This command draws a circle on the label.
+    pub fn circle(
+        &mut self,
+        x_start: Size,
+        y_start: Size,
+        diameter: Size,
+        thickness: Size,
+    ) -> Result<&mut Self> {
+        self.file.write_all(
+            format!(
+                "CIRCLE {},{},{},{}\r\n",
+                x_start.to_dots_raw(self.resolution),
+                y_start.to_dots_raw(self.resolution),
+                diameter.to_dots_raw(self.resolution),
+                thickness.to_dots_raw(self.resolution)
+            )
+            .as_bytes(),
+        )?;
+        Ok(self)
+    }
+
+    /// This command draws an ellipse on the label.
+    pub fn ellipse(
+        &mut self,
+        x_upper_left: Size,
+        y_upper_left: Size,
+        width: Size,
+        height: Size,
+        thickness: Size,
+    ) -> Result<&mut Self> {
+        self.file.write_all(
+            format!(
+                "ELLIPSE {},{},{},{},{}\r\n",
+                x_upper_left.to_dots_raw(self.resolution),
+                y_upper_left.to_dots_raw(self.resolution),
+                width.to_dots_raw(self.resolution),
+                height.to_dots_raw(self.resolution),
+                thickness.to_dots_raw(self.resolution)
+            )
+            .as_bytes(),
+        )?;
+        Ok(self)
+    }
+
+    fn resolution(file: &mut File) -> Result<u32> {
+        file.write_all("GETSETTINGS$(\"INFORMATION\",\"DPI\")\r\n".as_bytes())?;
+        let mut res = String::new();
+        file.read_to_string(&mut res)?;
+        Ok(res.parse::<u32>()?)
     }
 }
 
