@@ -999,6 +999,225 @@ impl Printer {
         Ok(self)
     }
 
+    /// This command draws CODABLOCK F mode barcode.
+    pub fn codablock(
+        &mut self,
+        x: Size,
+        y: Size,
+        rotation: Rotation,
+        row_height: Option<Size>,
+        module_width: Option<Size>,
+        content: &str,
+    ) -> Result<&mut Self> {
+        let row_height = row_height
+            .unwrap_or(Size::Dots(8))
+            .to_dots_raw(self.resolution);
+        let module_width = module_width
+            .unwrap_or(Size::Dots(8))
+            .to_dots_raw(self.resolution);
+
+        self.file.write_all(
+            format!(
+                "CODABLOCK {},{},{},{},{},\"{}\"\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution),
+                rotation,
+                row_height,
+                module_width,
+                content
+            )
+            .as_bytes(),
+        )?;
+
+        Ok(self)
+    }
+
+    /// This command defines a DataMatrix 2D bar code. Currently, only ECC200 error correction is supported.
+    pub fn data_matrix(
+        &mut self,
+        x: Size,
+        y: Size,
+        width: Size,
+        height: Size,
+        content: &str,
+    ) -> Result<&mut Self> {
+        self.file.write_all(
+            format!(
+                "DMATRIX {},{},{},{}, \"{}\"\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution),
+                width.to_dots_raw(self.resolution),
+                height.to_dots_raw(self.resolution),
+                content
+            )
+            .as_bytes(),
+        )?;
+        Ok(self)
+    }
+
+    /// This command clears a specified region in the image buffer.
+    pub fn erase(&mut self, x: Size, y: Size, width: Size, height: Size) -> Result<&mut Self> {
+        self.file.write_all(
+            format!(
+                "ERASE {},{},{},{}\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution),
+                width.to_dots_raw(self.resolution),
+                height.to_dots_raw(self.resolution)
+            )
+            .as_bytes(),
+        )?;
+        Ok(self)
+    }
+
+    /// This command defines a PDF417 2D bar code.
+    pub fn pdf417(
+        &mut self,
+        x_start: Size,
+        y_start: Size,
+        width: Size,
+        height: Size,
+        rotation: Rotation,
+        content: &str,
+    ) -> Result<&mut Self> {
+        self.file.write_all(
+            format!(
+                "PDF417 {},{},{},{},{},\"{}\"\r\n",
+                x_start.to_dots_raw(self.resolution),
+                y_start.to_dots_raw(self.resolution),
+                width.to_dots_raw(self.resolution),
+                height.to_dots_raw(self.resolution),
+                rotation,
+                content
+            )
+            .as_bytes(),
+        )?;
+        Ok(self)
+    }
+
+    /// This command defines a AZTEC 2D bar code.
+    pub fn aztec(
+        &mut self,
+        x_start: Size,
+        y_start: Size,
+        rotation: Rotation,
+        size: u8,
+        ecp: u16,
+        flg: bool,
+        menu: bool,
+        multi: u8,
+        reversed: bool,
+        content: &str,
+    ) -> Result<&mut Self> {
+        if size < 1 || size > 20 {
+            return Err(anyhow!("Wrong size settings!"));
+        }
+        if ecp > 300 {
+            return Err(anyhow!("Wrong error control parameter!"));
+        }
+        if multi < 1 || multi > 26 {
+            return Err(anyhow!("Wrong number of symbols!"));
+        }
+
+        self.file.write_all(
+            format!(
+                "AZTEC {},{},{},{},{},{},{},{},{},{},{}\r\n",
+                x_start.to_dots_raw(self.resolution),
+                y_start.to_dots_raw(self.resolution),
+                rotation,
+                size,
+                ecp,
+                flg as u8,
+                menu as u8,
+                multi,
+                reversed as u8,
+                content.as_bytes().len(),
+                content
+            )
+            .as_bytes(),
+        )?;
+
+        Ok(self)
+    }
+
+    /// This command defines a Micro PDF 417 bar code.
+    pub fn mpdf417(
+        &mut self,
+        x_start: Size,
+        y_start: Size,
+        rotation: Rotation,
+        module_width: Option<Size>,
+        module_height: Option<Size>,
+        col_num: Option<usize>,
+        content: &str,
+    ) -> Result<&mut Self> {
+        let col_num = match col_num {
+            Some(x) => match x {
+                1..=4 => x,
+                _ => 0,
+            },
+            _ => 0,
+        };
+
+        let module_width = module_width
+            .unwrap_or(Size::Dots(1))
+            .to_dots_raw(self.resolution);
+        let module_height = module_height
+            .unwrap_or(Size::Dots(10))
+            .to_dots_raw(self.resolution);
+
+        self.file.write_all(
+            format!(
+                "MPDF417 {},{},{},{},{},{}, \"{}\"\r\n",
+                x_start.to_dots_raw(self.resolution),
+                y_start.to_dots_raw(self.resolution),
+                rotation,
+                module_width,
+                module_height,
+                col_num,
+                content,
+            )
+            .as_bytes(),
+        )?;
+
+        Ok(self)
+    }
+
+    /// This command prints QR code.
+    pub fn qrcode(
+        &mut self,
+        x_upper_left: Size,
+        y_upper_left: Size,
+        ecc_level: u8,
+        cellwidth_dot: u8,
+        rotation: Rotation,
+        content: &str,
+    ) -> Result<&mut Self> {
+        let ecc_level = match ecc_level {
+            0..=6 => 'L',
+            7..=14 => 'M',
+            15..=24 => 'Q',
+            _ => 'H',
+        };
+        if cellwidth_dot < 1 || cellwidth_dot > 10 {
+            return Err(anyhow!("Wrong cellwidth value"));
+        }
+
+        self.file.write_all(
+            format!(
+                "QRCODE {},{},{},{},A,{},\"{}\"\r\n",
+                x_upper_left.to_dots_raw(self.resolution),
+                y_upper_left.to_dots_raw(self.resolution),
+                ecc_level,
+                cellwidth_dot,
+                rotation,
+                content
+            )
+            .as_bytes(),
+        )?;
+        Ok(self)
+    }
+
     fn resolution(file: &mut File) -> Result<u32> {
         file.write_all("GETSETTINGS$(\"INFORMATION\",\"DPI\")\r\n".as_bytes())?;
         let mut res = String::new();
