@@ -183,10 +183,10 @@ pub enum Codepage {
 
 #[derive(Debug)]
 pub struct Tape {
-    width: Size,
-    height: Option<Size>,
-    gap: Size,
-    gap_offset: Option<Size>,
+    pub width: Size,
+    pub height: Option<Size>,
+    pub gap: Size,
+    pub gap_offset: Option<Size>,
 }
 
 #[derive(Debug, Display)]
@@ -399,7 +399,24 @@ impl Printer {
 
         printer
             .size(tape.width, tape.height)?
-            .gap(tape.gap, tape.gap_offset)?;
+            .gap(tape.gap, tape.gap_offset)?
+            .cls()?;
+
+        Ok(printer)
+    }
+
+    /// Create a new printer with predefined resolution.
+    pub fn with_resolution(path: String, tape: Tape, dpi: u32) -> Result<Self> {
+        let file = std::fs::File::options().read(true).write(true).open(path)?;
+        let mut printer = Self {
+            file,
+            resolution: dpi,
+        };
+
+        printer
+            .size(tape.width, tape.height)?
+            .gap(tape.gap, tape.gap_offset)?
+            .cls()?;
 
         Ok(printer)
     }
@@ -799,6 +816,30 @@ impl Printer {
     }
 
     /// This command draws a bar on the label format.
+    /// ```
+    /// # use anyhow::Result;
+    /// # use tspl2::{Size, Printer, Tape};
+    /// # fn main() -> Result<()> {
+    /// let tape = Tape {
+    ///     width: Size::Metric(43.0),
+    ///     height: Some(Size::Metric(25.0)),
+    ///     gap: Size::Metric(2.0),
+    ///     gap_offset: None,
+    /// };
+    ///
+    /// let mut printer = Printer::with_resolution("/dev/usb/lp1".to_string(), tape, 203)?;
+    /// printer
+    /// .bar(
+    ///    Size::Metric(2.0),
+    ///    Size::Metric(2.0),
+    ///    Size::Metric(30.0),
+    ///    Size::Metric(10.0),
+    /// )?
+    /// .print(1, Some(1))?;
+    ///
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn bar(
         &mut self,
         x_upper_left: Size,
@@ -1229,17 +1270,16 @@ impl Printer {
 #[test]
 fn test() -> Result<()> {
     let tape = Tape {
-        width: Size::Metric(30.0),
-        height: Some(Size::Metric(20.0)),
-        gap: Size::Metric(1.4),
+        width: Size::Metric(43.0),
+        height: Some(Size::Metric(25.0)),
+        gap: Size::Metric(2.0),
         gap_offset: None,
     };
 
-    let mut printer = Printer::new("/ololo".to_string(), tape)?;
-
+    let mut printer = Printer::with_resolution("/dev/usb/lp1".to_string(), tape, 203)?;
     printer
-        .gap_detect(Some((1, 1)))?
-        .auto_detect(Some((1, 1)))?;
+        .barcode(Size::Metric(10.0), Size::Metric(10.0), Barcode::Barcode39, Size::Metric(20.0), HumanReadable::NotReadable, Rotation::NoRotation, NarrowWide::N1W1, None, "4019114301022")?
+        .print(1, Some(1))?;
 
     Ok(())
 }
