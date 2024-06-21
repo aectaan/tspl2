@@ -1,10 +1,6 @@
 use anyhow::{anyhow, Ok, Result};
 use log::debug;
-use std::{
-    fmt::Display,
-    fs::File,
-    io::{Read, Write},
-};
+use std::{fmt::Display, io::Write};
 use strum_macros::Display;
 
 #[derive(Debug, Clone)]
@@ -359,6 +355,46 @@ pub enum Barcode {
     /// A special use of Code 39. *Since V6.88EZ.
     #[strum(serialize = "LOGMARS")]
     BarcodeLogmars,
+}
+
+#[derive(Debug, Display)]
+pub enum RssType {
+    ///RSS14,
+    #[strum(serialize = "RSS14")]
+    Rss14,
+    ///RSS14 Truncated,
+    #[strum(serialize = "RSS14T")]
+    Rss14T,
+    ///RSS14 Stacked,
+    #[strum(serialize = "RSS14S")]
+    Rss14S,
+    ///RSS14 Stacked Omnidirectional,
+    #[strum(serialize = "RSS14SO")]
+    Rss14So,
+    ///RSS Limited,
+    #[strum(serialize = "RSSLIM")]
+    RssLim,
+    ///RSS Expanded,
+    #[strum(serialize = "RSSEXP")]
+    RssExp,
+    ///UPC-A,
+    #[strum(serialize = "UPCA")]
+    UpcA,
+    ///UPC-E,
+    #[strum(serialize = "UPCE")]
+    UpcE,
+    ///EAN13,
+    #[strum(serialize = "EAN13")]
+    Ean13,
+    ///EAN8,
+    #[strum(serialize = "EAN8")]
+    Ean8,
+    ///UCC/EAN-128 & CC-A/B,
+    #[strum(serialize = "UCC128CCA")]
+    Ucc128Cca,
+    ///UCC/EAN-128 & CC-C,
+    #[strum(serialize = "UCC128CCC")]
+    Ucc128Ccc,
 }
 
 #[derive(Debug, Display)]
@@ -1277,6 +1313,85 @@ impl Printer {
             content
         );
 
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
+        Ok(self)
+    }
+
+    /// This command is used to draw a RSS bar code on the label format
+    pub fn rss(
+        &mut self,
+        x_upper_left: Size,
+        y_upper_left: Size,
+        rss_type: RssType,
+        rotate: Rotation,
+        module_width: Size,
+        separator_height: usize,
+        seg_width: Option<usize>,
+        lin_height: Option<usize>,
+        content: &str,
+    ) -> Result<&mut Self> {
+        let pix_mult = module_width.to_dots_raw(self.resolution);
+        if !(1..=10).contains(&pix_mult) {
+            return Err(anyhow!("Wrong module resolution"));
+        }
+
+        if separator_height != 1 && separator_height != 2 {
+            return Err(anyhow!("Wrong separator height"));
+        }
+
+        let cmd = match rss_type {
+            RssType::RssExp => match seg_width {
+                Some(seg_width) => {
+                    if seg_width < 2 || seg_width > 22 {
+                        return Err(anyhow!("Wrong segment width. 2 to 22 accepted"));
+                    }
+                    format!(
+                        "RSS {},{}, \"{}\",{},{},{},{}, \"{}\"\r\n",
+                        x_upper_left.to_dots_raw(self.resolution),
+                        y_upper_left.to_dots_raw(self.resolution),
+                        rss_type,
+                        rotate,
+                        pix_mult,
+                        separator_height,
+                        seg_width,
+                        content
+                    )
+                }
+                None => return Err(anyhow!("Missed segment width")),
+            },
+            RssType::Ucc128Cca | RssType::Ucc128Ccc => match lin_height {
+                Some(lin_height) => {
+                    if lin_height < 1 || lin_height > 500 {
+                        return Err(anyhow!("Wrong line height. 1 to 500 accepted"));
+                    }
+                    format!(
+                        "RSS {},{}, \"{}\",{},{},{},{}, \"{}\"\r\n",
+                        x_upper_left.to_dots_raw(self.resolution),
+                        y_upper_left.to_dots_raw(self.resolution),
+                        rss_type,
+                        rotate,
+                        pix_mult,
+                        separator_height,
+                        lin_height,
+                        content
+                    )
+                }
+                None => return Err(anyhow!("UCC/EAN-128 height missed")),
+            },
+            _ => {
+                format!(
+                    "RSS {},{}, \"{}\",{},{},{}, \"{}\"\r\n",
+                    x_upper_left.to_dots_raw(self.resolution),
+                    y_upper_left.to_dots_raw(self.resolution),
+                    rss_type,
+                    rotate,
+                    pix_mult,
+                    separator_height,
+                    content
+                )
+            }
+        };
         debug!("{cmd}");
         self.file.write_all(cmd.as_bytes())?;
         Ok(self)
