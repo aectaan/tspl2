@@ -7,14 +7,14 @@ use strum_macros::Display;
 pub enum Size {
     Imperial(f32),
     Metric(f32),
-    Dots(i32),
+    Dots(u32),
 }
 
 impl Size {
-    fn to_dots_raw(&self, resolution: u32) -> i32 {
+    fn to_dots_raw(&self, resolution: u32) -> u32 {
         match self {
-            Self::Imperial(x) => (*x * resolution as f32) as i32,
-            Self::Metric(x) => (*x / 25.4 * resolution as f32) as i32,
+            Self::Imperial(x) => (*x * resolution as f32) as u32,
+            Self::Metric(x) => (*x / 25.4 * resolution as f32) as u32,
             Self::Dots(x) => *x,
         }
     }
