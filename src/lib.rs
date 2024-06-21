@@ -398,6 +398,79 @@ pub enum RssType {
 }
 
 #[derive(Debug, Display)]
+pub enum Font {
+    /// Monotye CG Triumvirate Bold Condensed, font width and height is stretchable
+    #[strum(serialize = "0")]
+    FontMonotye,
+    /// 8 x 12 fixed pitch dot font
+    #[strum(serialize = "1")]
+    Font8x12,
+    /// 12 x 20 fixed pitch dot font
+    #[strum(serialize = "2")]
+    Font12x20,
+    /// 16 x 24 fixed pitch dot font
+    #[strum(serialize = "3")]
+    Font16x24,
+    /// 24 x 32 fixed pitch dot font
+    #[strum(serialize = "4")]
+    Font24x32,
+    /// 32 x 48 dot fixed pitch font
+    #[strum(serialize = "5")]
+    Font32x48,
+    /// 14 x 19 dot fixed pitch font OCR-B
+    #[strum(serialize = "6")]
+    Font14x19,
+    /// 21 x 27 dot fixed pitch font OCR-B
+    #[strum(serialize = "7")]
+    Font21x27,
+    /// 14 x25 dot fixed pitch font OCR-A
+    #[strum(serialize = "8")]
+    Font14x25,
+    /// Monotye CG Triumvirate Bold Condensed, font width and height proportion is fixed
+    #[strum(serialize = "ROMAN.TTF")]
+    FontRoman,
+    /// EPL2 font 1
+    #[strum(serialize = "1.EFT")]
+    FontEpl1,
+    /// EPL2 font 2
+    #[strum(serialize = "2.EFT")]
+    FontEpl2,
+    /// EPL2 font 3
+    #[strum(serialize = "3.RFT")]
+    FontEpl3,
+    /// EPL2 font 4
+    #[strum(serialize = "4.EFT")]
+    FontEpl4,
+    /// EPL2 font 5
+    #[strum(serialize = "5.EFT")]
+    FontEpl5,
+    /// ZPL2 font A
+    #[strum(serialize = "A.FNT")]
+    FontZplA,
+    /// ZPL2 font A
+    #[strum(serialize = "B.FNT")]
+    FontZplB,
+    /// ZPL2 font D
+    #[strum(serialize = "D.FNT")]
+    FontZplD,
+    /// ZPL2 font E8
+    #[strum(serialize = "E8.FNT")]
+    FontZplE8,
+    /// ZPL2 font F
+    #[strum(serialize = "F.FNT")]
+    FontZplF,
+    /// ZPL2 font G
+    #[strum(serialize = "G.FNT")]
+    FontZplG,
+    /// ZPL2 font H8
+    #[strum(serialize = "H8.FNT")]
+    FontZplH8,
+    /// ZPL2 font GS
+    #[strum(serialize = "GS.FNT")]
+    FontZplGs,
+}
+
+#[derive(Debug, Display)]
 pub enum HumanReadable {
     #[strum(serialize = "0")]
     NotReadable = 0,
@@ -939,7 +1012,7 @@ impl Printer {
         code_type: Barcode,
         height: Size,
         human_readable: HumanReadable,
-        rotation: Rotation,
+        rotate: Rotation,
         narrow_wide: NarrowWide,
         alignment: Option<Alignment>,
         content: &str,
@@ -952,7 +1025,7 @@ impl Printer {
                 code_type,
                 height.to_dots_raw(self.resolution),
                 human_readable,
-                rotation,
+                rotate,
                 narrow_wide,
                 alignment,
                 content
@@ -981,7 +1054,7 @@ impl Printer {
         &mut self,
         x: Size,
         y: Size,
-        rotation: Rotation,
+        rotate: Rotation,
         height: Option<Size>,
         narrow: Option<Size>,
         wide: Option<Size>,
@@ -1009,7 +1082,7 @@ impl Printer {
             "TLC39 {},{},{},{},{},{},{},{}, \"{},{},{}\"\r\n",
             x,
             y,
-            rotation,
+            rotate,
             height,
             narrow,
             wide,
@@ -1109,7 +1182,7 @@ impl Printer {
         &mut self,
         x: Size,
         y: Size,
-        rotation: Rotation,
+        rotate: Rotation,
         row_height: Option<Size>,
         module_width: Option<Size>,
         content: &str,
@@ -1125,7 +1198,7 @@ impl Printer {
             "CODABLOCK {},{},{},{},{},\"{}\"\r\n",
             x.to_dots_raw(self.resolution),
             y.to_dots_raw(self.resolution),
-            rotation,
+            rotate,
             row_height,
             module_width,
             content
@@ -1180,7 +1253,7 @@ impl Printer {
         y_start: Size,
         width: Size,
         height: Size,
-        rotation: Rotation,
+        rotate: Rotation,
         content: &str,
     ) -> Result<&mut Self> {
         let cmd = format!(
@@ -1189,7 +1262,7 @@ impl Printer {
             y_start.to_dots_raw(self.resolution),
             width.to_dots_raw(self.resolution),
             height.to_dots_raw(self.resolution),
-            rotation,
+            rotate,
             content
         );
         debug!("{cmd}");
@@ -1202,7 +1275,7 @@ impl Printer {
         &mut self,
         x_start: Size,
         y_start: Size,
-        rotation: Rotation,
+        rotate: Rotation,
         size: u8,
         ecp: u16,
         flg: bool,
@@ -1225,7 +1298,7 @@ impl Printer {
             "AZTEC {},{},{},{},{},{},{},{},{},{},{}\r\n",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
-            rotation,
+            rotate,
             size,
             ecp,
             flg as u8,
@@ -1246,7 +1319,7 @@ impl Printer {
         &mut self,
         x_start: Size,
         y_start: Size,
-        rotation: Rotation,
+        rotate: Rotation,
         module_width: Option<Size>,
         module_height: Option<Size>,
         col_num: Option<usize>,
@@ -1271,7 +1344,7 @@ impl Printer {
             "MPDF417 {},{},{},{},{},{}, \"{}\"\r\n",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
-            rotation,
+            rotate,
             module_width,
             module_height,
             col_num,
@@ -1290,7 +1363,7 @@ impl Printer {
         y_upper_left: Size,
         ecc_level: u8,
         cellwidth_dot: u8,
-        rotation: Rotation,
+        rotate: Rotation,
         content: &str,
     ) -> Result<&mut Self> {
         let ecc_level = match ecc_level {
@@ -1309,7 +1382,7 @@ impl Printer {
             y_upper_left.to_dots_raw(self.resolution),
             ecc_level,
             cellwidth_dot,
-            rotation,
+            rotate,
             content
         );
 
@@ -1396,31 +1469,141 @@ impl Printer {
         self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
-}
 
-#[test]
-fn test() -> Result<()> {
-    let tape = Tape {
-        width: Size::Metric(43.0),
-        height: Some(Size::Metric(25.0)),
-        gap: Size::Metric(2.0),
-        gap_offset: None,
-    };
+    /// This command reverses a region in image buffer.
+    pub fn reverse(
+        &mut self,
+        x_start: Size,
+        y_start: Size,
+        width: Size,
+        height: Size,
+    ) -> Result<&mut Self> {
+        let cmd = format!(
+            "REVERSE {},{},{},{}\r\n",
+            x_start.to_dots_raw(self.resolution),
+            y_start.to_dots_raw(self.resolution),
+            width.to_dots_raw(self.resolution),
+            height.to_dots_raw(self.resolution)
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
+        Ok(self)
+    }
 
-    let mut printer = Printer::with_resolution("/dev/usb/lp1".to_string(), tape, 203)?;
-    printer
-        .barcode(
-            Size::Metric(10.0),
-            Size::Metric(10.0),
-            Barcode::Barcode39,
-            Size::Metric(20.0),
-            HumanReadable::NotReadable,
-            Rotation::NoRotation,
-            NarrowWide::N1W1,
-            None,
-            "4019114301022",
-        )?
-        .print(1, Some(1))?;
+    /// This command is used to draw a diagonal.
+    pub fn diagonal(
+        &mut self,
+        x_start: Size,
+        y_start: Size,
+        x_end: Size,
+        y_end: Size,
+        thickness: Size,
+    ) -> Result<&mut Self> {
+        let cmd = format!(
+            "DIAGONAL {},{},{},{},{}\r\n",
+            x_start.to_dots_raw(self.resolution),
+            y_start.to_dots_raw(self.resolution),
+            x_end.to_dots_raw(self.resolution),
+            y_end.to_dots_raw(self.resolution),
+            thickness.to_dots_raw(self.resolution)
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
+        Ok(self)
+    }
 
-    Ok(())
+    pub fn text(
+        &mut self,
+        x: Size,
+        y: Size,
+        font: Font,
+        rotate: Rotation,
+        multiply_x: u8,
+        multiply_y: u8,
+        alignment: Option<Alignment>,
+        content: &str,
+    ) -> Result<&mut Self> {
+        if multiply_x < 1 || multiply_x > 10 || multiply_y < 1 || multiply_y > 10 {
+            return Err(anyhow!("Wrong multiplication. Should be in range 1-10"));
+        }
+        let cmd = match alignment {
+            Some(alignment) => format!(
+                "TEXT {},{},\"{}\",{},{},{},{}, \"{}\"\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution),
+                font,
+                rotate,
+                multiply_x,
+                multiply_y,
+                alignment,
+                content
+            ),
+            None => format!(
+                "TEXT {},{},\"{}\",{},{},{}, \"{}\"\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution),
+                font,
+                rotate,
+                multiply_x,
+                multiply_y,
+                content
+            ),
+        };
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
+        Ok(self)
+    }
+
+    pub fn block(
+        &mut self,
+        x: Size,
+        y: Size,
+        width: Size,
+        height: Size,
+        font: Font,
+        rotate: Rotation,
+        multiply_x: u8,
+        multiply_y: u8,
+        space: Option<Size>,
+        alignment: Option<Alignment>,
+        fit: Option<bool>,
+        content: &str,
+    ) -> Result<&mut Self> {
+        if multiply_x < 1 || multiply_x > 10 || multiply_y < 1 || multiply_y > 10 {
+            return Err(anyhow!("Wrong multiplication. Should be in range 1-10"));
+        }
+
+        if content.len() > 4096 {
+            return Err(anyhow!("Overflow. Max content length 4096"));
+        }
+
+        let mut cmd = format!(
+            "TEXT {},{},{},{},\"{}\",{},{},{},",
+            x.to_dots_raw(self.resolution),
+            y.to_dots_raw(self.resolution),
+            width.to_dots_raw(self.resolution),
+            height.to_dots_raw(self.resolution),
+            font,
+            rotate,
+            multiply_x,
+            multiply_y,
+        );
+
+        if let Some(space) = space {
+            cmd.push_str(&format!("{},", space.to_dots_raw(self.resolution)));
+        }
+
+        if let Some(alignment) = alignment {
+            cmd.push_str(&format!("{},", alignment));
+        }
+        if let Some(fit) = fit {
+            cmd.push_str(&format!("{},", fit as u8));
+        }
+
+        cmd.push_str(&format!("\"{}\"\r\n", content));
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
+        Ok(self)
+    }
 }
