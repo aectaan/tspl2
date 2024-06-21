@@ -1038,7 +1038,7 @@ impl Printer {
                 code_type,
                 height.to_dots_raw(self.resolution),
                 human_readable,
-                rotation,
+                rotate,
                 narrow_wide,
                 content
             )
