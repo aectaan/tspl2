@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Ok, Result};
+use log::debug;
 use std::{
     fmt::Display,
     fs::File,
@@ -33,29 +34,51 @@ impl Display for Size {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
 pub enum Country {
+    #[strum(serialize = "1")]
     Usa = 1,
+    #[strum(serialize = "2")]
     CanadianFrench = 2,
+    #[strum(serialize = "3")]
     SpanishLatinAmerica = 3,
+    #[strum(serialize = "31")]
     Dutch = 31,
+    #[strum(serialize = "32")]
     Belgian = 32,
+    #[strum(serialize = "33")]
     French = 33,
+    #[strum(serialize = "34")]
     Spanish = 34,
+    #[strum(serialize = "36")]
     Hungarian = 36,
+    #[strum(serialize = "38")]
     Yugoslavian = 38,
+    #[strum(serialize = "39")]
     Italian = 39,
+    #[strum(serialize = "41")]
     Switzerland = 41,
+    #[strum(serialize = "42")]
     Slovak = 42,
+    #[strum(serialize = "44")]
     UnitedKingdom = 44,
+    #[strum(serialize = "45")]
     Danish = 45,
+    #[strum(serialize = "46")]
     Swedish = 46,
+    #[strum(serialize = "47")]
     Norwegian = 47,
+    #[strum(serialize = "48")]
     Polish = 48,
+    #[strum(serialize = "49")]
     German = 49,
+    #[strum(serialize = "55")]
     Brazil = 55,
+    #[strum(serialize = "61")]
     English = 61,
+    #[strum(serialize = "351")]
     Portuguese = 351,
+    #[strum(serialize = "358")]
     Finnish = 358,
 }
 
@@ -340,26 +363,38 @@ pub enum Barcode {
 
 #[derive(Debug, Display)]
 pub enum HumanReadable {
+    #[strum(serialize = "0")]
     NotReadable = 0,
+    #[strum(serialize = "1")]
     ReadableAlignsToLeft = 1,
+    #[strum(serialize = "2")]
     ReadableAlignsToCenter = 2,
+    #[strum(serialize = "3")]
     ReadableAlignsToRight = 3,
 }
 
 /// Clockwise rotation
 #[derive(Debug, Display)]
 pub enum Rotation {
+    #[strum(serialize = "0")]
     NoRotation = 0,
+    #[strum(serialize = "90")]
     Rotation90 = 90,
+    #[strum(serialize = "180")]
     Rotation180 = 180,
+    #[strum(serialize = "270")]
     Rotation270 = 270,
 }
 
 #[derive(Debug, Display)]
 pub enum Alignment {
+    #[strum(serialize = "0")]
     Default = 0,
+    #[strum(serialize = "1")]
     Left = 1,
+    #[strum(serialize = "2")]
     Center = 2,
+    #[strum(serialize = "3")]
     Right = 3,
 }
 
@@ -380,8 +415,11 @@ pub enum NarrowWide {
 
 #[derive(Debug, Display)]
 pub enum BitmapMode {
+    #[strum(serialize = "0")]
     Overwrite = 0,
+    #[strum(serialize = "1")]
     Or = 1,
+    #[strum(serialize = "2")]
     Xor = 2,
 }
 
@@ -391,20 +429,6 @@ pub struct Printer {
 }
 
 impl Printer {
-    /// Create a new printer from file. Usually it is somewhere in '/dev/usb/lp*'.
-    pub fn new(path: String, tape: Tape) -> Result<Self> {
-        let mut file = std::fs::File::options().read(true).write(true).open(path)?;
-        let resolution = Self::resolution(&mut file)?;
-        let mut printer = Self { file, resolution };
-
-        printer
-            .size(tape.width, tape.height)?
-            .gap(tape.gap, tape.gap_offset)?
-            .cls()?;
-
-        Ok(printer)
-    }
-
     /// Create a new printer with predefined resolution.
     pub fn with_resolution(path: String, tape: Tape, dpi: u32) -> Result<Self> {
         let file = std::fs::File::options().read(true).write(true).open(path)?;
@@ -424,14 +448,13 @@ impl Printer {
     /// This command defines the label width and height.
     /// Label length must be provided for firmware version <V8.13
     fn size(&mut self, width: Size, height: Option<Size>) -> Result<&mut Self> {
-        match height {
-            Some(height) => self
-                .file
-                .write_all(format!("SIZE {width},{height}\r\n",).as_bytes())?,
-            None => self
-                .file
-                .write_all(format!("SIZE {width}\r\n").as_bytes())?,
+        let cmd = match height {
+            Some(height) => format!("SIZE {width},{height}\r\n"),
+            None => format!("SIZE {width}\r\n"),
         };
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -439,12 +462,13 @@ impl Printer {
     /// Defines the gap distance between two labels.
     /// Optional offset distance of the gap may be provided
     fn gap(&mut self, gap: Size, gap_offset: Option<Size>) -> Result<&mut Self> {
-        match gap_offset {
-            Some(offset) => self
-                .file
-                .write_all(format!("GAP {gap},{offset}\r\n").as_bytes())?,
-            None => self.file.write_all(format!("GAP {gap}\r\n").as_bytes())?,
+        let cmd = match gap_offset {
+            Some(offset) => format!("GAP {gap},{offset}\r\n"),
+            None => format!("GAP {gap}\r\n"),
         };
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -460,17 +484,17 @@ impl Printer {
     /// calib.1: Gap length
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
     pub fn gap_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
-        match calib {
-            Some((x, y)) => self.file.write_all(
-                format!(
-                    "GAPDETECT {},{}\r\n",
-                    x.to_dots_raw(self.resolution),
-                    y.to_dots_raw(self.resolution)
-                )
-                .as_bytes(),
-            )?,
-            None => self.file.write_all("GAPDETECT\r\n".as_bytes())?,
-        }
+        let cmd = match calib {
+            Some((x, y)) => &format!(
+                "GAPDETECT {},{}\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution)
+            ),
+            None => "GAPDETECT\r\n",
+        };
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -484,17 +508,17 @@ impl Printer {
     /// calib.1: Gap length
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
     pub fn bline_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
-        match calib {
-            Some((x, y)) => self.file.write_all(
-                format!(
-                    "BLINEDETECT {},{}\r\n",
-                    x.to_dots_raw(self.resolution),
-                    y.to_dots_raw(self.resolution)
-                )
-                .as_bytes(),
-            )?,
-            None => self.file.write_all("BLINEDETECT\r\n".as_bytes())?,
-        }
+        let cmd = match calib {
+            Some((x, y)) => &format!(
+                "BLINEDETECT {},{}\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution)
+            ),
+            None => "BLINEDETECT\r\n",
+        };
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -508,25 +532,27 @@ impl Printer {
     /// calib.1: Gap length
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
     pub fn auto_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
-        match calib {
-            Some((x, y)) => self.file.write_all(
-                format!(
-                    "AUTODETECT {},{}\r\n",
-                    x.to_dots_raw(self.resolution),
-                    y.to_dots_raw(self.resolution)
-                )
-                .as_bytes(),
-            )?,
-            None => self.file.write_all("AUTODETECT\r\n".as_bytes())?,
-        }
+        let cmd = match calib {
+            Some((x, y)) => &format!(
+                "AUTODETECT {},{}\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution)
+            ),
+            None => "AUTODETECT\r\n",
+        };
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command sets the height of the black line and the user-defined extra label feeding length each form feed takes.
     /// Both parameters should be in the same measurement type (mm/inch/dot)
     pub fn bline(&mut self, black_line_height: Size, extra_feeding_len: Size) -> Result<&mut Self> {
-        self.file
-            .write_all(format!("BLINE {black_line_height},{extra_feeding_len}\r\n").as_bytes())?;
+        let cmd = format!("BLINE {black_line_height},{extra_feeding_len}\r\n");
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -535,28 +561,30 @@ impl Printer {
     /// so as for label to register at proper places for the intended purposes.
     /// The printer back tracks the extra feeding length before the next run of printing.
     pub fn offset(&mut self, offset: Size) -> Result<&mut Self> {
-        self.file
-            .write_all(format!("OFFSET {offset}\r\n").as_bytes())?;
+        let cmd = format!("OFFSET {offset}\r\n");
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command defines the print speed.
     /// Available speeds in inch/sec should be checked for your printer model
     pub fn speed(&mut self, speed: &str) -> Result<&mut Self> {
-        self.file
-            .write_all(format!("SPEED {speed}\r\n").as_bytes())?;
+        let cmd = format!("SPEED {speed}\r\n");
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command sets the printing darkness from lightest(0) to darkest(15). Default density is 8.
     pub fn density(&mut self, density: u8) -> Result<&mut Self> {
-        match density {
-            1..=15 => self
-                .file
-                .write_all(format!("DENSITY {density}\r\n").as_bytes())?,
+        let cmd = match density {
+            1..=15 => format!("DENSITY {density}\r\n"),
             _ => return Err(anyhow!("Density should be in range 0..15")),
         };
 
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -566,87 +594,85 @@ impl Printer {
         reversed_direction: bool,
         mirrored_image: bool,
     ) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "DIRECTION {},{}\r\n",
-                reversed_direction as u8, mirrored_image as u8
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "DIRECTION {},{}\r\n",
+            reversed_direction as u8, mirrored_image as u8
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
 
         Ok(self)
     }
 
     /// This command defines the reference point of the label. The reference (origin) point varies with the print direction.
     pub fn reference(&mut self, x: Size, y: Size) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "REFERENCE {},{}\r\n",
-                x.to_dots_raw(self.resolution),
-                y.to_dots_raw(self.resolution)
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "REFERENCE {},{}\r\n",
+            x.to_dots_raw(self.resolution),
+            y.to_dots_raw(self.resolution)
+        );
 
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command moves the label’s horizontal and vertical position. A positive value moves the label
     /// further from the printing direction; a negative value moves the label towards the printing direction.
     pub fn shift(&mut self, x: Option<Size>, y: Size) -> Result<&mut Self> {
-        match x {
-            Some(x) => self.file.write_all(
-                format!(
-                    "SHIFT {},{}\r\n",
-                    x.to_dots_raw(self.resolution),
-                    y.to_dots_raw(self.resolution)
-                )
-                .as_bytes(),
-            )?,
-            None => self
-                .file
-                .write_all(format!("SHIFT {}\r\n", y.to_dots_raw(self.resolution)).as_bytes())?,
-        }
+        let cmd = match x {
+            Some(x) => format!(
+                "SHIFT {},{}\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution)
+            ),
+            None => format!("SHIFT {}\r\n", y.to_dots_raw(self.resolution)),
+        };
 
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command orients the keyboard for use in different countries via
     /// defining special characters on the KP-200 series portable LCD keyboard (option).
     pub fn country(&mut self, country: Country) -> Result<&mut Self> {
-        self.file
-            .write_all(format!("COUNTRY {:03}\r\n", country as u16).as_bytes())?;
+        let cmd = format!("COUNTRY {:03}\r\n", country as u16);
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command defines the code page of international character set.
     pub fn codepage(&mut self, codepage: Codepage) -> Result<&mut Self> {
-        self.file
-            .write_all(format!("CODEPAGE {codepage}\r\n").as_bytes())?;
-
+        let cmd = format!("CODEPAGE {codepage}\r\n");
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command clears the image buffer.
     pub fn cls(&mut self) -> Result<&mut Self> {
-        self.file.write_all("CLS\r\n".as_bytes())?;
+        let cmd = "CLS\r\n";
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command feeds label with the specified length
     pub fn feed(&mut self, feed: Size) -> Result<&mut Self> {
         let feed_dot = feed.to_dots_raw(self.resolution);
-        match feed_dot {
-            0..=9999 => self
-                .file
-                .write_all(format!("FEED {feed_dot}\r\n").as_bytes())?,
+        let cmd = match feed_dot {
+            0..=9999 => format!("FEED {feed_dot}\r\n"),
             _ => {
                 return Err(anyhow!(
                     "feed length must be in range 0..9999 in dots, got {:?}",
                     feed_dot
                 ))
             }
-        }
+        };
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -654,17 +680,17 @@ impl Printer {
     /// For TSPL printers only
     pub fn backup(&mut self, feed: Size) -> Result<&mut Self> {
         let feed_dot = feed.to_dots_raw(self.resolution);
-        match feed_dot {
-            0..=9999 => self
-                .file
-                .write_all(format!("BACKUP {feed_dot}\r\n").as_bytes())?,
+        let cmd = match feed_dot {
+            0..=9999 => format!("BACKUP {feed_dot}\r\n"),
             _ => {
                 return Err(anyhow!(
                     "backup length must be in range 0..9999, got {:?}",
                     feed_dot
                 ))
             }
-        }
+        };
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -672,24 +698,25 @@ impl Printer {
     /// For TSPL2 printers only
     pub fn backfeed(&mut self, feed: Size) -> Result<&mut Self> {
         let feed_dot = feed.to_dots_raw(self.resolution);
-        match feed_dot {
-            0..=9999 => self
-                .file
-                .write_all(format!("BACKFEED {feed_dot}\r\n").as_bytes())?,
+        let cmd = match feed_dot {
+            0..=9999 => format!("BACKFEED {feed_dot}\r\n"),
             _ => {
                 return Err(anyhow!(
                     "backfeed length must be in range 0..9999, got {:?}",
                     feed_dot
                 ))
             }
-        }
+        };
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command feeds label to the beginning of next label.
     pub fn formfeed(&mut self) -> Result<&mut Self> {
-        self.file.write_all("FORMFEED\r\n".as_bytes())?;
-
+        let cmd = "FORMFEED\r\n";
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -698,19 +725,19 @@ impl Printer {
     /// For TSPL programming printer: Back label to origin position.
     /// For TSPL2 programming printer: Feed label to origin position
     pub fn home(&mut self) -> Result<&mut Self> {
-        self.file.write_all("HOME\r\n".as_bytes())?;
+        let cmd = "HOME\r\n";
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command prints the label format currently stored in the image buffer.
     pub fn print(&mut self, sets: u32, copies: Option<u32>) -> Result<&mut Self> {
-        match sets {
+        let cmd = match sets {
             1..=999999999 => {
                 if let Some(copies) = copies {
                     match copies {
-                        1..=999999999 => self
-                            .file
-                            .write_all(format!("PRINT {sets},{copies}\r\n").as_bytes())?,
+                        1..=999999999 => format!("PRINT {sets},{copies}\r\n"),
                         _ => {
                             return Err(anyhow!(
                                 "Copies qty must be in range 1..999999999, got {:?}",
@@ -719,8 +746,7 @@ impl Printer {
                         }
                     }
                 } else {
-                    self.file
-                        .write_all(format!("PRINT {sets}\r\n").as_bytes())?;
+                    format!("PRINT {sets}\r\n")
                 }
             }
             _ => {
@@ -729,26 +755,31 @@ impl Printer {
                     sets
                 ))
             }
-        }
+        };
 
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command controls the sound frequency of the beeper. There are 10 levels of sounds, from 0 to 9.
     /// The timing control can be set by the "interval" parameter, in range 1..4095
     pub fn sound(&mut self, level: u8, interval: u16) -> Result<&mut Self> {
-        match (level, interval) {
-            (0..=9, 1..=4095) => self
-                .file
-                .write_all(format!("SOUND {level},{interval}\r\n").as_bytes())?,
+        let cmd = match (level, interval) {
+            (0..=9, 1..=4095) => format!("SOUND {level},{interval}\r\n"),
             _ => return Err(anyhow!("wrong sound parameters")),
-        }
+        };
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command activates the cutter to immediately cut the labels without back feeding the label.
     pub fn cut(&mut self) -> Result<&mut Self> {
-        self.file.write_all("CUT\r\n".as_bytes())?;
+        let cmd = "CUT\r\n";
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -767,52 +798,57 @@ impl Printer {
         n: Size,
         minpaper_maxgap: Option<(Size, Size)>,
     ) -> Result<&mut Self> {
-        match minpaper_maxgap {
-            Some((x, y)) => self
-                .file
-                .write_all(format!("LIMITFEED {n},{x},{y}\r\n").as_bytes())?,
-            None => self
-                .file
-                .write_all(format!("LIMITFEED {n}\r\n").as_bytes())?,
-        }
+        let cmd = match minpaper_maxgap {
+            Some((x, y)) => format!("LIMITFEED {n},{x},{y}\r\n"),
+            None => format!("LIMITFEED {n}\r\n"),
+        };
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
 
         Ok(self)
     }
 
     /// At this command, the printer will print out the printer information.
     pub fn selftest(&mut self, test_kind: Selftest) -> Result<&mut Self> {
-        self.file
-            .write_all(format!("SELFTEST {test_kind}\r\n").as_bytes())?;
+        let cmd = format!("SELFTEST {test_kind}\r\n");
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// Let the printer wait until process of commands (before EOJ) be finished then go on the next command.
     pub fn eoj(&mut self) -> Result<&mut Self> {
-        self.file.write_all("EOJ\r\n".as_bytes())?;
+        let cmd = "EOJ\r\n";
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// Let the printer wait specific period of time then go on next command.
     pub fn delay(&mut self, delay: std::time::Duration) -> Result<&mut Self> {
-        let d = delay.as_millis();
-        self.file.write_all(format!("DELAY {d}\r\n").as_bytes())?;
+        let cmd = format!("DELAY {}\r\n", delay.as_millis());
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command can show the image, which is in printer’s image buffer, on LCD panel.
     pub fn display(&self) {
-        todo!()
+        unimplemented!()
     }
 
     /// This command can restore printer settings to defaults.
     pub fn initial_printer(&mut self) -> Result<&mut Self> {
-        self.file.write_all("INITIALPRINTER\r\n".as_bytes())?;
+        let cmd = "INITIALPRINTER\r\n";
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command can design user's own menu with a database resident on the printer.
     pub fn menu(&self) {
-        todo!();
+        unimplemented!()
     }
 
     /// This command draws a bar on the label format.
@@ -847,16 +883,15 @@ impl Printer {
         width: Size,
         height: Size,
     ) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "BAR {},{},{},{}\r\n",
-                x_upper_left.to_dots_raw(self.resolution),
-                y_upper_left.to_dots_raw(self.resolution),
-                width.to_dots_raw(self.resolution),
-                height.to_dots_raw(self.resolution)
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "BAR {},{},{},{}\r\n",
+            x_upper_left.to_dots_raw(self.resolution),
+            y_upper_left.to_dots_raw(self.resolution),
+            width.to_dots_raw(self.resolution),
+            height.to_dots_raw(self.resolution)
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -873,38 +908,35 @@ impl Printer {
         alignment: Option<Alignment>,
         content: &str,
     ) -> Result<&mut Self> {
-        if let Some(alignment) = alignment {
-            self.file.write_all(
-                format!(
-                    "BARCODE {},{},\"{}\",{},{},{},{},{}, \"{}\"\r\n",
-                    x.to_dots_raw(self.resolution),
-                    y.to_dots_raw(self.resolution),
-                    code_type,
-                    height.to_dots_raw(self.resolution),
-                    human_readable,
-                    rotation,
-                    narrow_wide,
-                    alignment,
-                    content
-                )
-                .as_bytes(),
-            )?;
+        let cmd = if let Some(alignment) = alignment {
+            format!(
+                "BARCODE {},{},\"{}\",{},{},{},{},{}, \"{}\"\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution),
+                code_type,
+                height.to_dots_raw(self.resolution),
+                human_readable,
+                rotation,
+                narrow_wide,
+                alignment,
+                content
+            )
         } else {
-            self.file.write_all(
-                format!(
-                    "BARCODE {},{},\"{}\",{},{},{},{}, \"{}\"\r\n",
-                    x.to_dots_raw(self.resolution),
-                    y.to_dots_raw(self.resolution),
-                    code_type,
-                    height.to_dots_raw(self.resolution),
-                    human_readable,
-                    rotation,
-                    narrow_wide,
-                    content
-                )
-                .as_bytes(),
-            )?;
-        }
+            format!(
+                "BARCODE {},{},\"{}\",{},{},{},{}, \"{}\"\r\n",
+                x.to_dots_raw(self.resolution),
+                y.to_dots_raw(self.resolution),
+                code_type,
+                height.to_dots_raw(self.resolution),
+                human_readable,
+                rotation,
+                narrow_wide,
+                content
+            )
+        };
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -937,37 +969,36 @@ impl Printer {
             .unwrap_or(Size::Dots(4))
             .to_dots_raw(self.resolution);
 
-        self.file.write_all(
-            format!(
-                "TLC39 {},{},{},{},{},{},{},{}, \"{},{},{}\"\r\n",
-                x,
-                y,
-                rotation,
-                height,
-                narrow,
-                wide,
-                cellwidth,
-                cellheight,
-                eci_number,
-                serial_number,
-                additional_data
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "TLC39 {},{},{},{},{},{},{},{}, \"{},{},{}\"\r\n",
+            x,
+            y,
+            rotation,
+            height,
+            narrow,
+            wide,
+            cellwidth,
+            cellheight,
+            eci_number,
+            serial_number,
+            additional_data
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command draws bitmap images (as opposed to BMP graphic files).
     pub fn bitmap(
         &mut self,
-        x: Size,
-        y: Size,
-        width_bytes: u16,
-        height: Size,
-        mode: BitmapMode,
-        bitmap_data: Vec<u8>,
+        _x: Size,
+        _y: Size,
+        _width_bytes: u16,
+        _height: Size,
+        _mode: BitmapMode,
+        _bitmap_data: Vec<u8>,
     ) -> Result<&mut Self> {
-        todo!()
+        unimplemented!()
     }
 
     /// This command draws rectangles on the label.
@@ -980,18 +1011,17 @@ impl Printer {
         thickness: Size,
         radius: Option<Size>,
     ) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "BOX {},{},{},{},{},{}\r\n",
-                x_start.to_dots_raw(self.resolution),
-                y_start.to_dots_raw(self.resolution),
-                x_end.to_dots_raw(self.resolution),
-                y_end.to_dots_raw(self.resolution),
-                thickness.to_dots_raw(self.resolution),
-                radius.unwrap_or(Size::Dots(0)).to_dots_raw(self.resolution)
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "BOX {},{},{},{},{},{}\r\n",
+            x_start.to_dots_raw(self.resolution),
+            y_start.to_dots_raw(self.resolution),
+            x_end.to_dots_raw(self.resolution),
+            y_end.to_dots_raw(self.resolution),
+            thickness.to_dots_raw(self.resolution),
+            radius.unwrap_or(Size::Dots(0)).to_dots_raw(self.resolution)
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -1004,16 +1034,15 @@ impl Printer {
         diameter: Size,
         thickness: Size,
     ) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "CIRCLE {},{},{},{}\r\n",
-                x_start.to_dots_raw(self.resolution),
-                y_start.to_dots_raw(self.resolution),
-                diameter.to_dots_raw(self.resolution),
-                thickness.to_dots_raw(self.resolution)
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "CIRCLE {},{},{},{}\r\n",
+            x_start.to_dots_raw(self.resolution),
+            y_start.to_dots_raw(self.resolution),
+            diameter.to_dots_raw(self.resolution),
+            thickness.to_dots_raw(self.resolution)
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1026,17 +1055,16 @@ impl Printer {
         height: Size,
         thickness: Size,
     ) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "ELLIPSE {},{},{},{},{}\r\n",
-                x_upper_left.to_dots_raw(self.resolution),
-                y_upper_left.to_dots_raw(self.resolution),
-                width.to_dots_raw(self.resolution),
-                height.to_dots_raw(self.resolution),
-                thickness.to_dots_raw(self.resolution)
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "ELLIPSE {},{},{},{},{}\r\n",
+            x_upper_left.to_dots_raw(self.resolution),
+            y_upper_left.to_dots_raw(self.resolution),
+            width.to_dots_raw(self.resolution),
+            height.to_dots_raw(self.resolution),
+            thickness.to_dots_raw(self.resolution)
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1057,18 +1085,17 @@ impl Printer {
             .unwrap_or(Size::Dots(8))
             .to_dots_raw(self.resolution);
 
-        self.file.write_all(
-            format!(
-                "CODABLOCK {},{},{},{},{},\"{}\"\r\n",
-                x.to_dots_raw(self.resolution),
-                y.to_dots_raw(self.resolution),
-                rotation,
-                row_height,
-                module_width,
-                content
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "CODABLOCK {},{},{},{},{},\"{}\"\r\n",
+            x.to_dots_raw(self.resolution),
+            y.to_dots_raw(self.resolution),
+            rotation,
+            row_height,
+            module_width,
+            content
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -1082,32 +1109,31 @@ impl Printer {
         height: Size,
         content: &str,
     ) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "DMATRIX {},{},{},{}, \"{}\"\r\n",
-                x.to_dots_raw(self.resolution),
-                y.to_dots_raw(self.resolution),
-                width.to_dots_raw(self.resolution),
-                height.to_dots_raw(self.resolution),
-                content
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "DMATRIX {},{},{},{}, \"{}\"\r\n",
+            x.to_dots_raw(self.resolution),
+            y.to_dots_raw(self.resolution),
+            width.to_dots_raw(self.resolution),
+            height.to_dots_raw(self.resolution),
+            content
+        );
+
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
     /// This command clears a specified region in the image buffer.
     pub fn erase(&mut self, x: Size, y: Size, width: Size, height: Size) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "ERASE {},{},{},{}\r\n",
-                x.to_dots_raw(self.resolution),
-                y.to_dots_raw(self.resolution),
-                width.to_dots_raw(self.resolution),
-                height.to_dots_raw(self.resolution)
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "ERASE {},{},{},{}\r\n",
+            x.to_dots_raw(self.resolution),
+            y.to_dots_raw(self.resolution),
+            width.to_dots_raw(self.resolution),
+            height.to_dots_raw(self.resolution)
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1121,18 +1147,17 @@ impl Printer {
         rotation: Rotation,
         content: &str,
     ) -> Result<&mut Self> {
-        self.file.write_all(
-            format!(
-                "PDF417 {},{},{},{},{},\"{}\"\r\n",
-                x_start.to_dots_raw(self.resolution),
-                y_start.to_dots_raw(self.resolution),
-                width.to_dots_raw(self.resolution),
-                height.to_dots_raw(self.resolution),
-                rotation,
-                content
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "PDF417 {},{},{},{},{},\"{}\"\r\n",
+            x_start.to_dots_raw(self.resolution),
+            y_start.to_dots_raw(self.resolution),
+            width.to_dots_raw(self.resolution),
+            height.to_dots_raw(self.resolution),
+            rotation,
+            content
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1151,32 +1176,31 @@ impl Printer {
         content: &str,
     ) -> Result<&mut Self> {
         if size < 1 || size > 20 {
-            return Err(anyhow!("Wrong size settings!"));
+            return Err(anyhow!("Wrong size settings. min: 1, max: 20"));
         }
         if ecp > 300 {
-            return Err(anyhow!("Wrong error control parameter!"));
+            return Err(anyhow!("Wrong error control parameter. Max: 300"));
         }
         if multi < 1 || multi > 26 {
-            return Err(anyhow!("Wrong number of symbols!"));
+            return Err(anyhow!("Wrong number of symbols. min: 1, max: 26"));
         }
 
-        self.file.write_all(
-            format!(
-                "AZTEC {},{},{},{},{},{},{},{},{},{},{}\r\n",
-                x_start.to_dots_raw(self.resolution),
-                y_start.to_dots_raw(self.resolution),
-                rotation,
-                size,
-                ecp,
-                flg as u8,
-                menu as u8,
-                multi,
-                reversed as u8,
-                content.as_bytes().len(),
-                content
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "AZTEC {},{},{},{},{},{},{},{},{},{},{}\r\n",
+            x_start.to_dots_raw(self.resolution),
+            y_start.to_dots_raw(self.resolution),
+            rotation,
+            size,
+            ecp,
+            flg as u8,
+            menu as u8,
+            multi,
+            reversed as u8,
+            content.as_bytes().len(),
+            content
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -1207,19 +1231,18 @@ impl Printer {
             .unwrap_or(Size::Dots(10))
             .to_dots_raw(self.resolution);
 
-        self.file.write_all(
-            format!(
-                "MPDF417 {},{},{},{},{},{}, \"{}\"\r\n",
-                x_start.to_dots_raw(self.resolution),
-                y_start.to_dots_raw(self.resolution),
-                rotation,
-                module_width,
-                module_height,
-                col_num,
-                content,
-            )
-            .as_bytes(),
-        )?;
+        let cmd = format!(
+            "MPDF417 {},{},{},{},{},{}, \"{}\"\r\n",
+            x_start.to_dots_raw(self.resolution),
+            y_start.to_dots_raw(self.resolution),
+            rotation,
+            module_width,
+            module_height,
+            col_num,
+            content,
+        );
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -1241,29 +1264,22 @@ impl Printer {
             _ => 'H',
         };
         if cellwidth_dot < 1 || cellwidth_dot > 10 {
-            return Err(anyhow!("Wrong cellwidth value"));
+            return Err(anyhow!("Wrong cellwidth value. min: 1, max: 10"));
         }
 
-        self.file.write_all(
-            format!(
-                "QRCODE {},{},{},{},A,{},\"{}\"\r\n",
-                x_upper_left.to_dots_raw(self.resolution),
-                y_upper_left.to_dots_raw(self.resolution),
-                ecc_level,
-                cellwidth_dot,
-                rotation,
-                content
-            )
-            .as_bytes(),
-        )?;
-        Ok(self)
-    }
+        let cmd = format!(
+            "QRCODE {},{},{},{},A,{},\"{}\"\r\n",
+            x_upper_left.to_dots_raw(self.resolution),
+            y_upper_left.to_dots_raw(self.resolution),
+            ecc_level,
+            cellwidth_dot,
+            rotation,
+            content
+        );
 
-    fn resolution(file: &mut File) -> Result<u32> {
-        file.write_all("GETSETTINGS$(\"INFORMATION\",\"DPI\")\r\n".as_bytes())?;
-        let mut res = String::new();
-        file.read_to_string(&mut res)?;
-        Ok(res.parse::<u32>()?)
+        debug!("{cmd}");
+        self.file.write_all(cmd.as_bytes())?;
+        Ok(self)
     }
 }
 
@@ -1278,7 +1294,17 @@ fn test() -> Result<()> {
 
     let mut printer = Printer::with_resolution("/dev/usb/lp1".to_string(), tape, 203)?;
     printer
-        .barcode(Size::Metric(10.0), Size::Metric(10.0), Barcode::Barcode39, Size::Metric(20.0), HumanReadable::NotReadable, Rotation::NoRotation, NarrowWide::N1W1, None, "4019114301022")?
+        .barcode(
+            Size::Metric(10.0),
+            Size::Metric(10.0),
+            Barcode::Barcode39,
+            Size::Metric(20.0),
+            HumanReadable::NotReadable,
+            Rotation::NoRotation,
+            NarrowWide::N1W1,
+            None,
+            "4019114301022",
+        )?
         .print(1, Some(1))?;
 
     Ok(())
