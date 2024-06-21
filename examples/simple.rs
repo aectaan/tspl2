@@ -1,11 +1,3 @@
-# tspl2
-Library for handling with thermal label printers, controlled by TSPL/TSPL2 language
-
-# Examples
-
-## Rust
-See: [simple.rs](examples/simple.rs)
-```rust
 use anyhow::Result;
 use tspl2::{Alignment, Barcode, Font, HumanReadable, NarrowWide, Printer, Rotation, Size, Tape};
 
@@ -63,4 +55,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-```

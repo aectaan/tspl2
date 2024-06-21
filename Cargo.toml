@@ -2,10 +2,16 @@
 name = "tspl2"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = """
+Simple driver for TSPL/TSPLv2 compatible thermal label printers
+"""
+readme = "README.md"
+keywords = ["ESC", "POS", "printer", "driver", "TSPL"]
+repository = "https://github.com/aectaan/tspl2"
+license = "MIT"
+authors = ["Egor Markov <mark_ee@live.com>"]
 
 [dependencies]
-anyhow = "1.0.71"
-strum_macros = "0.24.3"
+anyhow = "1.0"
+strum_macros = "0.24"
 log = "0.4"

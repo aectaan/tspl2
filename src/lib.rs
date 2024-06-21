@@ -532,6 +532,28 @@ pub enum BitmapMode {
     Xor = 2,
 }
 
+#[derive(Debug, Display)]
+pub enum QrCodeJustification {
+    #[strum(serialize = "J1")]
+    UpperLeft,
+    #[strum(serialize = "J2")]
+    UpperCenter,
+    #[strum(serialize = "J3")]
+    UpperRight,
+    #[strum(serialize = "J4")]
+    CenterLeft,
+    #[strum(serialize = "J5")]
+    Center,
+    #[strum(serialize = "J6")]
+    CenterRight,
+    #[strum(serialize = "J7")]
+    BottomLeft,
+    #[strum(serialize = "J8")]
+    BottomCenter,
+    #[strum(serialize = "J9")]
+    BottomRight,
+}
+
 pub struct Printer {
     file: std::fs::File,
     resolution: u32,
@@ -539,7 +561,7 @@ pub struct Printer {
 
 impl Printer {
     /// Create a new printer with predefined resolution.
-    pub fn with_resolution(path: String, tape: Tape, dpi: u32) -> Result<Self> {
+    pub fn with_resolution(path: &str, tape: Tape, dpi: u32) -> Result<Self> {
         let file = std::fs::File::options().read(true).write(true).open(path)?;
         let mut printer = Self {
             file,
@@ -972,7 +994,7 @@ impl Printer {
     ///     gap_offset: None,
     /// };
     ///
-    /// let mut printer = Printer::with_resolution("/dev/usb/lp1".to_string(), tape, 203)?;
+    /// let mut printer = Printer::with_resolution("/dev/usb/lp1", tape, 203)?;
     /// printer
     /// .bar(
     ///    Size::Metric(2.0),
@@ -1284,13 +1306,13 @@ impl Printer {
         reversed: bool,
         content: &str,
     ) -> Result<&mut Self> {
-        if size < 1 || size > 20 {
+        if !(1..=20).contains(&size) {
             return Err(anyhow!("Wrong size settings. min: 1, max: 20"));
         }
         if ecp > 300 {
             return Err(anyhow!("Wrong error control parameter. Max: 300"));
         }
-        if multi < 1 || multi > 26 {
+        if !(1..=26).contains(&multi) {
             return Err(anyhow!("Wrong number of symbols. min: 1, max: 26"));
         }
 
@@ -1364,6 +1386,7 @@ impl Printer {
         ecc_level: u8,
         cellwidth_dot: u8,
         rotate: Rotation,
+        justification: Option<QrCodeJustification>,
         content: &str,
     ) -> Result<&mut Self> {
         let ecc_level = match ecc_level {
@@ -1372,19 +1395,31 @@ impl Printer {
             15..=24 => 'Q',
             _ => 'H',
         };
-        if cellwidth_dot < 1 || cellwidth_dot > 10 {
+        if !(1..=10).contains(&cellwidth_dot) {
             return Err(anyhow!("Wrong cellwidth value. min: 1, max: 10"));
         }
 
-        let cmd = format!(
-            "QRCODE {},{},{},{},A,{},\"{}\"\r\n",
-            x_upper_left.to_dots_raw(self.resolution),
-            y_upper_left.to_dots_raw(self.resolution),
-            ecc_level,
-            cellwidth_dot,
-            rotate,
-            content
-        );
+        let cmd = match justification {
+            Some(justification) => format!(
+                "QRCODE {},{},{},{},A,{},{},\"{}\"\r\n",
+                x_upper_left.to_dots_raw(self.resolution),
+                y_upper_left.to_dots_raw(self.resolution),
+                ecc_level,
+                cellwidth_dot,
+                rotate,
+                justification,
+                content
+            ),
+            None => format!(
+                "QRCODE {},{},{},{},A,{},\"{}\"\r\n",
+                x_upper_left.to_dots_raw(self.resolution),
+                y_upper_left.to_dots_raw(self.resolution),
+                ecc_level,
+                cellwidth_dot,
+                rotate,
+                content
+            ),
+        };
 
         debug!("{cmd}");
         self.file.write_all(cmd.as_bytes())?;
@@ -1416,7 +1451,7 @@ impl Printer {
         let cmd = match rss_type {
             RssType::RssExp => match seg_width {
                 Some(seg_width) => {
-                    if seg_width < 2 || seg_width > 22 {
+                    if !(2..=22).contains(&seg_width) {
                         return Err(anyhow!("Wrong segment width. 2 to 22 accepted"));
                     }
                     format!(
@@ -1435,7 +1470,7 @@ impl Printer {
             },
             RssType::Ucc128Cca | RssType::Ucc128Ccc => match lin_height {
                 Some(lin_height) => {
-                    if lin_height < 1 || lin_height > 500 {
+                    if !(1..=500).contains(&lin_height) {
                         return Err(anyhow!("Wrong line height. 1 to 500 accepted"));
                     }
                     format!(
@@ -1523,7 +1558,7 @@ impl Printer {
         alignment: Option<Alignment>,
         content: &str,
     ) -> Result<&mut Self> {
-        if multiply_x < 1 || multiply_x > 10 || multiply_y < 1 || multiply_y > 10 {
+        if !(1..=10).contains(&multiply_x) || !(1..=10).contains(&multiply_y) {
             return Err(anyhow!("Wrong multiplication. Should be in range 1-10"));
         }
         let cmd = match alignment {
@@ -1569,7 +1604,7 @@ impl Printer {
         fit: Option<bool>,
         content: &str,
     ) -> Result<&mut Self> {
-        if multiply_x < 1 || multiply_x > 10 || multiply_y < 1 || multiply_y > 10 {
+        if !(1..=10).contains(&multiply_x) || !(1..=10).contains(&multiply_y) {
             return Err(anyhow!("Wrong multiplication. Should be in range 1-10"));
         }
 
