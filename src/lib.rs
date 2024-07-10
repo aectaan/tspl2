@@ -983,30 +983,6 @@ impl Printer {
     }
 
     /// This command draws a bar on the label format.
-    /// ```
-    /// # use anyhow::Result;
-    /// # use tspl2::{Size, Printer, Tape};
-    /// # fn main() -> Result<()> {
-    /// let tape = Tape {
-    ///     width: Size::Metric(43.0),
-    ///     height: Some(Size::Metric(25.0)),
-    ///     gap: Size::Metric(2.0),
-    ///     gap_offset: None,
-    /// };
-    ///
-    /// let mut printer = Printer::with_resolution("/dev/usb/lp1", tape, 203)?;
-    /// printer
-    /// .bar(
-    ///    Size::Metric(2.0),
-    ///    Size::Metric(2.0),
-    ///    Size::Metric(30.0),
-    ///    Size::Metric(10.0),
-    /// )?
-    /// .print(1, Some(1))?;
-    ///
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn bar(
         &mut self,
         x_upper_left: Size,
@@ -1122,14 +1098,30 @@ impl Printer {
     /// This command draws bitmap images (as opposed to BMP graphic files).
     pub fn bitmap(
         &mut self,
-        _x: Size,
-        _y: Size,
-        _width_bytes: u16,
-        _height: Size,
-        _mode: BitmapMode,
-        _bitmap_data: Vec<u8>,
+        x: Size,
+        y: Size,
+        width_bytes: u16,
+        height_dots: u16,
+        mode: BitmapMode,
+        bitmap_data: Vec<u8>,
     ) -> Result<&mut Self> {
-        unimplemented!()
+        let crlf = vec![b'\r', b'\n'];
+        let mut cmd = format!(
+            "BITMAP {},{},{},{},{},",
+            x.to_dots_raw(self.resolution),
+            y.to_dots_raw(self.resolution),
+            width_bytes,
+            height_dots,
+            mode
+        )
+        .as_bytes()
+        .to_vec();
+        cmd.extend(bitmap_data);
+        cmd.extend(crlf);
+
+        self.file.write_all(&cmd)?;
+
+        Ok(self)
     }
 
     /// This command draws rectangles on the label.
