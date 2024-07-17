@@ -1228,18 +1228,63 @@ impl Printer {
         &mut self,
         x: Size,
         y: Size,
-        width: Size,
-        height: Size,
+        exp_width: Size,
+        exp_height: Size,
+        escape_symbol: Option<char>,
+        module_size: Option<Size>,
+        rotate: Option<Rotation>,
+        rectangular: Option<bool>,
+        row_size: Option<u8>,
+        col_size: Option<u8>,
         content: &str,
     ) -> Result<&mut Self> {
-        let cmd = format!(
-            "DMATRIX {},{},{},{}, \"{}\"\r\n",
+        let mut cmd = format!(
+            "DMATRIX {},{},{},{},",
             x.to_dots_raw(self.resolution),
             y.to_dots_raw(self.resolution),
-            width.to_dots_raw(self.resolution),
-            height.to_dots_raw(self.resolution),
-            content
+            exp_width.to_dots_raw(self.resolution),
+            exp_height.to_dots_raw(self.resolution)
         );
+
+        if let Some(c) = escape_symbol {
+            let c = c as u8;
+            if (0..=127).contains(&c) {
+                cmd.push_str(&format!("c{},", c));
+            } else {
+                return Err(anyhow!("Wrong ASCII symbol"));
+            }
+        }
+
+        if let Some(x) = module_size {
+            cmd.push_str(&format!("x{},", x.to_dots_raw(self.resolution)));
+        }
+
+        if let Some(r) = rotate {
+            cmd.push_str(&format!("r{},", r));
+        }
+
+        if let Some(a) = rectangular {
+            let a = if a { 1 } else { 0 };
+            cmd.push_str(&format!("a{},", a));
+        }
+
+        if let Some(row) = row_size {
+            if (10..=144).contains(&row) {
+                cmd.push_str(&format!("{row},"));
+            } else {
+                return Err(anyhow!("Row size doesnt match limit [10;144]"));
+            }
+        }
+
+        if let Some(col) = col_size {
+            if (10..=144).contains(&col) {
+                cmd.push_str(&format!("{col},"));
+            } else {
+                return Err(anyhow!("Column size doesnt match limit [10;144]"));
+            }
+        }
+
+        cmd.push_str(&format!(" \"{}\"\r\n", content));
 
         debug!("{cmd}");
         self.file.write_all(cmd.as_bytes())?;
