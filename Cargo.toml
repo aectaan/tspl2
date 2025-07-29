@@ -16,3 +16,6 @@ authors = ["Egor Markov <mark_ee@live.com>"]
 anyhow = "1.0"
 strum_macros = "0.24"
 log = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = ["Win32", "Win32_Graphics", "Win32_Graphics_Gdi", "Win32_Graphics_Printing"] }

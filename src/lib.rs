@@ -1,6 +1,8 @@
 use anyhow::{anyhow, Ok, Result};
 use log::debug;
-use std::{fmt::Display, io::Write};
+#[cfg(target_os = "windows")]
+use std::ffi::CString;
+use std::fmt::Display;
 use strum_macros::Display;
 
 #[derive(Debug, Clone)]
@@ -554,17 +556,83 @@ pub enum QrCodeJustification {
     BottomRight,
 }
 
+impl Into<&'static str> for QrCodeJustification {
+    fn into(self) -> &'static str {
+        match self {
+            QrCodeJustification::UpperLeft => "J1",
+            QrCodeJustification::UpperCenter => "J2",
+            QrCodeJustification::UpperRight => "J3",
+            QrCodeJustification::CenterLeft => "J4",
+            QrCodeJustification::Center => "J5",
+            QrCodeJustification::CenterRight => "J6",
+            QrCodeJustification::BottomLeft => "J7",
+            QrCodeJustification::BottomCenter => "J8",
+            QrCodeJustification::BottomRight => "J9",
+        }
+    }
+}
+
+#[derive(Debug, Display)]
+pub enum QrCodeModel {
+    M1, //(default), original version
+    M2, //enhanced version (Almost smart phone is supported by this version.)
+}
+
+impl Into<&'static str> for QrCodeModel {
+    fn into(self) -> &'static str {
+        match self {
+            QrCodeModel::M1 => "M1",
+            QrCodeModel::M2 => "M2",
+        }
+    }
+}
+
+// don't know what meant
+#[derive(Debug, Display)]
+pub enum QrCodeMask {
+    S0,
+    S1,
+    S2,
+    S3,
+    S4,
+    S5,
+    S6,
+    S7, // default
+    S8,
+}
+
+impl Into<&'static str> for QrCodeMask {
+    fn into(self) -> &'static str {
+        match self {
+            QrCodeMask::S0 => "S0",
+            QrCodeMask::S1 => "S1",
+            QrCodeMask::S2 => "S2",
+            QrCodeMask::S3 => "S3",
+            QrCodeMask::S4 => "S4",
+            QrCodeMask::S5 => "S5",
+            QrCodeMask::S6 => "S6",
+            QrCodeMask::S7 => "S7",
+            QrCodeMask::S8 => "S8",
+        }
+    }
+}
+
 pub struct Printer {
+    #[cfg(target_os = "linux")]
     file: std::fs::File,
+    #[cfg(target_os = "windows")]
+    printer_name: CString,
     resolution: u32,
 }
 
 impl Printer {
     /// Create a new printer with predefined resolution.
     pub fn with_resolution(path: &str, tape: Tape, dpi: u32) -> Result<Self> {
-        let file = std::fs::File::options().read(true).write(true).open(path)?;
         let mut printer = Self {
-            file,
+            #[cfg(target_os = "linux")]
+            file: std::fs::File::options().read(true).write(true).open(path)?,
+            #[cfg(target_os = "windows")]
+            printer_name: CString::new(path).unwrap_or_default(),
             resolution: dpi,
         };
 
@@ -576,6 +644,87 @@ impl Printer {
         Ok(printer)
     }
 
+    /// copy from raw-printer
+    #[cfg(target_os = "windows")]
+    fn write_command(&mut self, bytes: &[u8]) -> Result<()> {
+        use std::ffi::CString;
+        use std::ptr;
+        use windows::Win32::Graphics::Printing::{
+            ClosePrinter, EndDocPrinter, EndPagePrinter, OpenPrinterA, StartDocPrinterA,
+            StartPagePrinter, WritePrinter, DOC_INFO_1A, PRINTER_ACCESS_USE, PRINTER_DEFAULTSA,
+            PRINTER_HANDLE,
+        };
+
+        let mut printer_handle = PRINTER_HANDLE {
+            Value: std::ptr::null_mut(),
+        };
+
+        // Open the printer
+        unsafe {
+            let pd = PRINTER_DEFAULTSA {
+                pDatatype: windows::core::PSTR(ptr::null_mut()),
+                pDevMode: ptr::null_mut(),
+                DesiredAccess: PRINTER_ACCESS_USE,
+            };
+
+            if OpenPrinterA(
+                windows::core::PCSTR(self.printer_name.as_bytes().as_ptr()),
+                &mut printer_handle,
+                Some(&pd),
+            )
+            .is_ok()
+            {
+                let doc_name_cstring = CString::new("Print Job").unwrap_or_default();
+
+                let doc_info = DOC_INFO_1A {
+                    pDocName: windows::core::PSTR(doc_name_cstring.as_ptr() as *mut u8),
+                    pOutputFile: windows::core::PSTR::null(),
+                    pDatatype: windows::core::PSTR("RAW\0".as_ptr() as *mut u8),
+                };
+
+                // Start the document
+                let job = StartDocPrinterA(printer_handle, 1, &doc_info as *const _ as _);
+                if job == 0 {
+                    return Err(anyhow!(windows::core::Error::from_win32()));
+                }
+
+                // Start the page
+                if !StartPagePrinter(printer_handle).as_bool() {
+                    return Err(anyhow!(windows::core::Error::from_win32()));
+                }
+
+                let mut bytes_written: u32 = 0;
+                if !WritePrinter(
+                    printer_handle,
+                    bytes.as_ptr() as _,
+                    bytes.len() as u32,
+                    &mut bytes_written,
+                )
+                .as_bool()
+                {
+                    return Err(anyhow!(windows::core::Error::from_win32()));
+                }
+
+                // End the page and document
+                let _ = EndPagePrinter(printer_handle);
+                let _ = EndDocPrinter(printer_handle);
+                let _ = ClosePrinter(printer_handle);
+                Ok(())
+            } else {
+                Err(anyhow!(windows::core::Error::from_win32()))
+            }
+        }
+    }
+
+    #[inline]
+    #[cfg(target_os = "linux")]
+    fn write_command(&mut self, bytes: &[u8]) -> Result<()> {
+        use std::io::Write;
+
+        self.file.write_all(bytes)?;
+        Ok(())
+    }
+
     /// This command defines the label width and height.
     /// Label length must be provided for firmware version <V8.13
     fn size(&mut self, width: Size, height: Option<Size>) -> Result<&mut Self> {
@@ -585,7 +734,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -599,7 +748,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -625,7 +774,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -649,7 +798,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -673,7 +822,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -683,7 +832,7 @@ impl Printer {
         let cmd = format!("BLINE {black_line_height},{extra_feeding_len}\r\n");
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -694,7 +843,7 @@ impl Printer {
     pub fn offset(&mut self, offset: Size) -> Result<&mut Self> {
         let cmd = format!("OFFSET {offset}\r\n");
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -703,7 +852,7 @@ impl Printer {
     pub fn speed(&mut self, speed: &str) -> Result<&mut Self> {
         let cmd = format!("SPEED {speed}\r\n");
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -715,7 +864,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -730,7 +879,7 @@ impl Printer {
             reversed_direction as u8, mirrored_image as u8
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -744,7 +893,7 @@ impl Printer {
         );
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -761,7 +910,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -770,7 +919,7 @@ impl Printer {
     pub fn country(&mut self, country: Country) -> Result<&mut Self> {
         let cmd = format!("COUNTRY {:03}\r\n", country as u16);
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -778,7 +927,7 @@ impl Printer {
     pub fn codepage(&mut self, codepage: Codepage) -> Result<&mut Self> {
         let cmd = format!("CODEPAGE {codepage}\r\n");
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -786,7 +935,7 @@ impl Printer {
     pub fn cls(&mut self) -> Result<&mut Self> {
         let cmd = "CLS\r\n";
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -803,7 +952,7 @@ impl Printer {
             }
         };
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -821,7 +970,7 @@ impl Printer {
             }
         };
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -839,7 +988,7 @@ impl Printer {
             }
         };
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -847,7 +996,7 @@ impl Printer {
     pub fn formfeed(&mut self) -> Result<&mut Self> {
         let cmd = "FORMFEED\r\n";
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -858,7 +1007,7 @@ impl Printer {
     pub fn home(&mut self) -> Result<&mut Self> {
         let cmd = "HOME\r\n";
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -889,7 +1038,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -902,7 +1051,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -910,7 +1059,7 @@ impl Printer {
     pub fn cut(&mut self) -> Result<&mut Self> {
         let cmd = "CUT\r\n";
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -935,7 +1084,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -944,7 +1093,7 @@ impl Printer {
     pub fn selftest(&mut self, test_kind: Selftest) -> Result<&mut Self> {
         let cmd = format!("SELFTEST {test_kind}\r\n");
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -952,7 +1101,7 @@ impl Printer {
     pub fn eoj(&mut self) -> Result<&mut Self> {
         let cmd = "EOJ\r\n";
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -960,7 +1109,7 @@ impl Printer {
     pub fn delay(&mut self, delay: std::time::Duration) -> Result<&mut Self> {
         let cmd = format!("DELAY {}\r\n", delay.as_millis());
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -973,7 +1122,7 @@ impl Printer {
     pub fn initial_printer(&mut self) -> Result<&mut Self> {
         let cmd = "INITIALPRINTER\r\n";
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -998,7 +1147,7 @@ impl Printer {
             height.to_dots_raw(self.resolution)
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1043,7 +1192,7 @@ impl Printer {
         };
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1091,7 +1240,7 @@ impl Printer {
             additional_data
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1119,7 +1268,7 @@ impl Printer {
         cmd.extend(bitmap_data);
         cmd.extend(crlf);
 
-        self.file.write_all(&cmd)?;
+        self.write_command(&cmd)?;
 
         Ok(self)
     }
@@ -1144,7 +1293,7 @@ impl Printer {
             radius.unwrap_or(Size::Dots(0)).to_dots_raw(self.resolution)
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -1165,7 +1314,7 @@ impl Printer {
             thickness.to_dots_raw(self.resolution)
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1187,7 +1336,7 @@ impl Printer {
             thickness.to_dots_raw(self.resolution)
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1218,7 +1367,7 @@ impl Printer {
             content
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -1287,7 +1436,7 @@ impl Printer {
         cmd.push_str(&format!(" \"{}\"\r\n", content));
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1301,7 +1450,7 @@ impl Printer {
             height.to_dots_raw(self.resolution)
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1325,7 +1474,7 @@ impl Printer {
             content
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1368,7 +1517,7 @@ impl Printer {
             content
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -1410,7 +1559,7 @@ impl Printer {
             content,
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
 
         Ok(self)
     }
@@ -1424,6 +1573,9 @@ impl Printer {
         cellwidth_dot: u8,
         rotate: Rotation,
         justification: Option<QrCodeJustification>,
+        model: Option<QrCodeModel>,
+        mask: Option<QrCodeMask>,
+        area: Option<u32>,
         content: &str,
     ) -> Result<&mut Self> {
         let ecc_level = match ecc_level {
@@ -1436,30 +1588,35 @@ impl Printer {
             return Err(anyhow!("Wrong cellwidth value. min: 1, max: 10"));
         }
 
-        let cmd = match justification {
-            Some(justification) => format!(
-                "QRCODE {},{},{},{},A,{},{},\"{}\"\r\n",
-                x_upper_left.to_dots_raw(self.resolution),
-                y_upper_left.to_dots_raw(self.resolution),
-                ecc_level,
-                cellwidth_dot,
-                rotate,
-                justification,
-                content
-            ),
-            None => format!(
-                "QRCODE {},{},{},{},A,{},\"{}\"\r\n",
-                x_upper_left.to_dots_raw(self.resolution),
-                y_upper_left.to_dots_raw(self.resolution),
-                ecc_level,
-                cellwidth_dot,
-                rotate,
-                content
-            ),
-        };
+        let mut cmd = format!(
+            "QRCODE {},{},{},{},A,{},",
+            x_upper_left.to_dots_raw(self.resolution),
+            y_upper_left.to_dots_raw(self.resolution),
+            ecc_level,
+            cellwidth_dot,
+            rotate,
+        );
+        if let Some(justification) = justification {
+            cmd.push_str(justification.into());
+            cmd.push(',');
+        }
+        if let Some(model) = model {
+            cmd.push_str(model.into());
+            cmd.push(',');
+        }
+        if let Some(mask) = mask {
+            cmd.push_str(mask.into());
+            cmd.push(',');
+        }
+        if let Some(area) = area {
+            cmd.push_str(&format!("X{area},"));
+        }
+        cmd.push('"');
+        cmd.push_str(content);
+        cmd.push_str("\"\r\n");
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1538,7 +1695,7 @@ impl Printer {
             }
         };
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1558,7 +1715,7 @@ impl Printer {
             height.to_dots_raw(self.resolution)
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1580,7 +1737,7 @@ impl Printer {
             thickness.to_dots_raw(self.resolution)
         );
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1622,7 +1779,7 @@ impl Printer {
             ),
         };
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 
@@ -1675,7 +1832,7 @@ impl Printer {
         cmd.push_str(&format!("\"{}\"\r\n", content));
 
         debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
+        self.write_command(cmd.as_bytes())?;
         Ok(self)
     }
 }

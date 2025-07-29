@@ -1,5 +1,7 @@
 use anyhow::Result;
-use tspl2::{Alignment, Barcode, Font, HumanReadable, NarrowWide, Printer, Rotation, Size, Tape};
+use tspl2::{
+    Alignment, Barcode, Font, HumanReadable, NarrowWide, Printer, QrCodeModel, Rotation, Size, Tape,
+};
 
 fn main() -> Result<()> {
     // Get access to the printer
@@ -23,6 +25,9 @@ fn main() -> Result<()> {
             35,
             6,
             Rotation::NoRotation,
+            None,
+            Some(QrCodeModel::M2),
+            None,
             None,
             "0123456789AB",
         )?
