@@ -1,204 +1,25 @@
+mod barcode;
+mod codepage;
+mod country;
+mod font;
+mod miscellaneous;
+mod rss_type;
+mod selftest;
+mod size;
+
+pub use barcode::Barcode;
+pub use codepage::Codepage;
+pub use country::Country;
+pub use font::Font;
+pub use miscellaneous::{
+    Alignment, BitmapMode, HumanReadable, NarrowWide, QrCodeJustification, Rotation,
+};
+pub use rss_type::RssType;
+pub use selftest::Selftest;
+pub use size::Size;
+
 use anyhow::{anyhow, Ok, Result};
-use log::debug;
-use std::{fmt::Display, io::Write};
-use strum_macros::Display;
-
-#[derive(Debug, Clone)]
-pub enum Size {
-    Imperial(f32),
-    Metric(f32),
-    Dots(u32),
-}
-
-impl Size {
-    fn to_dots_raw(&self, resolution: u32) -> u32 {
-        match self {
-            Self::Imperial(x) => (*x * resolution as f32) as u32,
-            Self::Metric(x) => (*x / 25.4 * resolution as f32) as u32,
-            Self::Dots(x) => *x,
-        }
-    }
-}
-
-impl Display for Size {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Imperial(x) => write!(f, "{x}"),
-            Self::Metric(x) => write!(f, "{x} mm"),
-            Self::Dots(x) => write!(f, "{x} dot"),
-        }
-    }
-}
-
-#[derive(Debug, Display)]
-pub enum Country {
-    #[strum(serialize = "1")]
-    Usa = 1,
-    #[strum(serialize = "2")]
-    CanadianFrench = 2,
-    #[strum(serialize = "3")]
-    SpanishLatinAmerica = 3,
-    #[strum(serialize = "31")]
-    Dutch = 31,
-    #[strum(serialize = "32")]
-    Belgian = 32,
-    #[strum(serialize = "33")]
-    French = 33,
-    #[strum(serialize = "34")]
-    Spanish = 34,
-    #[strum(serialize = "36")]
-    Hungarian = 36,
-    #[strum(serialize = "38")]
-    Yugoslavian = 38,
-    #[strum(serialize = "39")]
-    Italian = 39,
-    #[strum(serialize = "41")]
-    Switzerland = 41,
-    #[strum(serialize = "42")]
-    Slovak = 42,
-    #[strum(serialize = "44")]
-    UnitedKingdom = 44,
-    #[strum(serialize = "45")]
-    Danish = 45,
-    #[strum(serialize = "46")]
-    Swedish = 46,
-    #[strum(serialize = "47")]
-    Norwegian = 47,
-    #[strum(serialize = "48")]
-    Polish = 48,
-    #[strum(serialize = "49")]
-    German = 49,
-    #[strum(serialize = "55")]
-    Brazil = 55,
-    #[strum(serialize = "61")]
-    English = 61,
-    #[strum(serialize = "351")]
-    Portuguese = 351,
-    #[strum(serialize = "358")]
-    Finnish = 358,
-}
-
-#[derive(Debug, Display)]
-pub enum Codepage7Bit {
-    #[strum(serialize = "USA")]
-    Usa,
-    #[strum(serialize = "BRI")]
-    British,
-    #[strum(serialize = "GER")]
-    German,
-    #[strum(serialize = "FRE")]
-    French,
-    #[strum(serialize = "DAN")]
-    Danish,
-    #[strum(serialize = "ITA")]
-    Italian,
-    #[strum(serialize = "SPA")]
-    Spanish,
-    #[strum(serialize = "SWE")]
-    Swedish,
-    #[strum(serialize = "SWI")]
-    Swiss,
-}
-
-#[derive(Debug, Display)]
-pub enum Codepage8Bit {
-    #[strum(serialize = "437")]
-    UnitedStates,
-    #[strum(serialize = "737")]
-    Greek,
-    #[strum(serialize = "850")]
-    Multilingual,
-    #[strum(serialize = "851")]
-    Greek1,
-    #[strum(serialize = "852")]
-    Slavic,
-    #[strum(serialize = "855")]
-    Cyrillic,
-    #[strum(serialize = "857")]
-    Turkish,
-    #[strum(serialize = "860")]
-    Portuguese,
-    #[strum(serialize = "861")]
-    Icelandic,
-    #[strum(serialize = "862")]
-    Hebrew,
-    #[strum(serialize = "863")]
-    CanadianFrench,
-    #[strum(serialize = "864")]
-    Arabic,
-    #[strum(serialize = "865")]
-    Nordic,
-    #[strum(serialize = "866")]
-    Russian,
-    #[strum(serialize = "869")]
-    Greek2,
-}
-
-#[derive(Debug, Display)]
-pub enum CodepageWindows {
-    #[strum(serialize = "1250")]
-    CentralEurope,
-    #[strum(serialize = "1251")]
-    Cyrillic,
-    #[strum(serialize = "1252")]
-    Latin1,
-    #[strum(serialize = "1253")]
-    Greek,
-    #[strum(serialize = "1254")]
-    Turkish,
-    #[strum(serialize = "1255")]
-    Hebrew,
-    #[strum(serialize = "1256")]
-    Arabic,
-    #[strum(serialize = "1257")]
-    Baltic,
-    #[strum(serialize = "1258")]
-    Vietnam,
-    #[strum(serialize = "932")]
-    Japanese,
-    #[strum(serialize = "936")]
-    ChineseSiplified,
-    #[strum(serialize = "949")]
-    Korean,
-    #[strum(serialize = "950")]
-    ChineseTraditional,
-    #[strum(serialize = "UTF-8")]
-    Utf8,
-}
-
-#[derive(Debug, Display)]
-pub enum CodepageIso {
-    #[strum(serialize = "8859-1")]
-    Latin1,
-    #[strum(serialize = "8859-2")]
-    Latin2,
-    #[strum(serialize = "8859-3")]
-    Latin3,
-    #[strum(serialize = "8859-4")]
-    Baltic,
-    #[strum(serialize = "8859-5")]
-    Cyrillic,
-    #[strum(serialize = "8859-6")]
-    Arabic,
-    #[strum(serialize = "8859-7")]
-    Greek,
-    #[strum(serialize = "8859-8")]
-    Hebrew,
-    #[strum(serialize = "8859-9")]
-    Turkish,
-    #[strum(serialize = "8859-10")]
-    Latin6,
-    #[strum(serialize = "8859-15")]
-    Latin9,
-}
-
-#[derive(Debug, Display)]
-pub enum Codepage {
-    Codepage7Bit(Codepage7Bit),
-    Codepage8Bit(Codepage8Bit),
-    CodepageWindows(CodepageWindows),
-    CodepageIso(CodepageIso),
-}
+use std::io::Write;
 
 #[derive(Debug)]
 pub struct Tape {
@@ -206,352 +27,6 @@ pub struct Tape {
     pub height: Option<Size>,
     pub gap: Size,
     pub gap_offset: Option<Size>,
-}
-
-#[derive(Debug, Display)]
-pub enum Selftest {
-    /// Print a self-test page with whole printer information.
-    #[strum(serialize = "")]
-    All,
-    /// Print a pattern to check the status of print head heat line.
-    #[strum(serialize = "PATTERN")]
-    Pattern,
-    /// Print a self-test page with Ethernet settings.
-    #[strum(serialize = "ETHERNET")]
-    Ethernet,
-    /// Print a self-test page with Wi-Fi settings.
-    #[strum(serialize = "WLAN")]
-    Wlan,
-    /// Print a self-test page with RS-232 settings.
-    #[strum(serialize = "RS232")]
-    Rs232,
-    /// Print a self-test page with printer settings.
-    #[strum(serialize = "SYSTEM")]
-    System,
-    /// Print a self-test page with emulated language settings.
-    #[strum(serialize = "Z")]
-    Z,
-    /// Print a self-test page with Bluetooth settings.
-    #[strum(serialize = "BT")]
-    Bt,
-}
-
-#[derive(Debug, Display)]
-pub enum Barcode {
-    /// Code 128, switching code subset automatically.
-    #[strum(serialize = "128")]
-    Barcode128,
-    /// Code 128, switching code subset manually.
-    #[strum(serialize = "128M")]
-    Barcode128M,
-    /// EAN128, switching code subset automatically.
-    #[strum(serialize = "EAN128")]
-    BarcodeEan128,
-    /// EAN128M, switching code subset manually.
-    #[strum(serialize = "EAN128M")]
-    BarcodeEan128M,
-    /// Interleaved 2 of 5.
-    #[strum(serialize = "25")]
-    Barcode25,
-    /// Interleaved 2 of 5 with check digit.
-    #[strum(serialize = "25C")]
-    Barcode25C,
-    /// Standard 2 of 5.
-    #[strum(serialize = "25S")]
-    Barcode25S,
-    /// Industrial 2 of 5.
-    #[strum(serialize = "25I")]
-    Barcode25I,
-    /// Code 39, switching standard and full ASCII mode automatically
-    #[strum(serialize = "39")]
-    Barcode39,
-    /// Code 39 with check digit.
-    #[strum(serialize = "39C")]
-    Barcode39C,
-    /// Code 93.
-    #[strum(serialize = "93")]
-    Barcode93,
-    /// EAN 13
-    #[strum(serialize = "EAN13")]
-    BarcodeEan13,
-    /// EAN 13 with 2 digits add-on.
-    #[strum(serialize = "EAN13+2")]
-    BarcodeEan13Plus2,
-    /// EAN 13 with 5 digits add-on.
-    #[strum(serialize = "EAN13+5")]
-    BarcodeEan13Plus5,
-    /// EAN 8.
-    #[strum(serialize = "EAN8")]
-    BarcodeEan8,
-    /// EAN 8 with 2 digits add-on.
-    #[strum(serialize = "EAN8+2")]
-    BarcodeEan8Plus2,
-    /// EAN 8 with 5 digits add-on.
-    #[strum(serialize = "EAN8+5")]
-    BarcodeEan8Plus5,
-    /// Codabar.
-    #[strum(serialize = "CODA")]
-    BarcodeCoda,
-    /// Postnet.
-    #[strum(serialize = "POST")]
-    BarcodePost,
-    /// UPC-A
-    #[strum(serialize = "UPCA")]
-    BarcodeUpca,
-    /// UPC-A with 2 digits add-on.
-    #[strum(serialize = "UPCA+2")]
-    BarcodeUpcaPlus2,
-    /// UPC-A with 5 digits add-on.
-    #[strum(serialize = "UPCA+5")]
-    BarcodeUpaPlus5,
-    /// UPC-E
-    #[strum(serialize = "UPCE")]
-    BarcodeUpce,
-    /// UPC-E with 2 digits add-on.
-    #[strum(serialize = "UPCE+2")]
-    BarcodeUpcePlus2,
-    /// UPC-E with 5 digits add-on.
-    #[strum(serialize = "UPCE+5")]
-    BarcodeUpePlus5,
-    /// MSI
-    #[strum(serialize = "MSI")]
-    BarcodeMsi,
-    /// MSI with check digit.
-    #[strum(serialize = "MSIC")]
-    BarcodeMsic,
-    /// PLESSEY.
-    #[strum(serialize = "PLESSEY")]
-    BarcodePlessey,
-    /// China post.
-    #[strum(serialize = "CPOST")]
-    BarcodeCpost,
-    /// ITF14.
-    #[strum(serialize = "ITF14")]
-    BarcodeItf14,
-    /// EAN14.
-    #[strum(serialize = "EAN14")]
-    BarcodeEan14,
-    /// Code 11.
-    #[strum(serialize = "11")]
-    Barcode11,
-    /// Telepen. *Since V6.89EZ.
-    #[strum(serialize = "TELEPEN")]
-    BarcodeTelepen,
-    /// Telepen number. *Since V6.89EZ.
-    #[strum(serialize = "TELEPENN")]
-    BarcodeTelepenN,
-    /// Planet. *Since V6.89EZ.
-    #[strum(serialize = "PLANET")]
-    BarcodePlanet,
-    /// Code 49. *Since V6.89EZ.
-    #[strum(serialize = "CODE49")]
-    BarcodeCode49,
-    /// eutsche Post Identcode. *Since V6.91EZ.
-    #[strum(serialize = "DPI")]
-    BarcodeDpi,
-    /// Deutsche Post Leitcode. *Since V6.91EZ.
-    #[strum(serialize = "DPL")]
-    BarcodeDpl,
-    /// A special use of Code 39. *Since V6.88EZ.
-    #[strum(serialize = "LOGMARS")]
-    BarcodeLogmars,
-}
-
-#[derive(Debug, Display)]
-pub enum RssType {
-    ///RSS14,
-    #[strum(serialize = "RSS14")]
-    Rss14,
-    ///RSS14 Truncated,
-    #[strum(serialize = "RSS14T")]
-    Rss14T,
-    ///RSS14 Stacked,
-    #[strum(serialize = "RSS14S")]
-    Rss14S,
-    ///RSS14 Stacked Omnidirectional,
-    #[strum(serialize = "RSS14SO")]
-    Rss14So,
-    ///RSS Limited,
-    #[strum(serialize = "RSSLIM")]
-    RssLim,
-    ///RSS Expanded,
-    #[strum(serialize = "RSSEXP")]
-    RssExp,
-    ///UPC-A,
-    #[strum(serialize = "UPCA")]
-    UpcA,
-    ///UPC-E,
-    #[strum(serialize = "UPCE")]
-    UpcE,
-    ///EAN13,
-    #[strum(serialize = "EAN13")]
-    Ean13,
-    ///EAN8,
-    #[strum(serialize = "EAN8")]
-    Ean8,
-    ///UCC/EAN-128 & CC-A/B,
-    #[strum(serialize = "UCC128CCA")]
-    Ucc128Cca,
-    ///UCC/EAN-128 & CC-C,
-    #[strum(serialize = "UCC128CCC")]
-    Ucc128Ccc,
-}
-
-#[derive(Debug, Display)]
-pub enum Font {
-    /// Monotye CG Triumvirate Bold Condensed, font width and height is stretchable
-    #[strum(serialize = "0")]
-    FontMonotye,
-    /// 8 x 12 fixed pitch dot font
-    #[strum(serialize = "1")]
-    Font8x12,
-    /// 12 x 20 fixed pitch dot font
-    #[strum(serialize = "2")]
-    Font12x20,
-    /// 16 x 24 fixed pitch dot font
-    #[strum(serialize = "3")]
-    Font16x24,
-    /// 24 x 32 fixed pitch dot font
-    #[strum(serialize = "4")]
-    Font24x32,
-    /// 32 x 48 dot fixed pitch font
-    #[strum(serialize = "5")]
-    Font32x48,
-    /// 14 x 19 dot fixed pitch font OCR-B
-    #[strum(serialize = "6")]
-    Font14x19,
-    /// 21 x 27 dot fixed pitch font OCR-B
-    #[strum(serialize = "7")]
-    Font21x27,
-    /// 14 x25 dot fixed pitch font OCR-A
-    #[strum(serialize = "8")]
-    Font14x25,
-    /// Monotye CG Triumvirate Bold Condensed, font width and height proportion is fixed
-    #[strum(serialize = "ROMAN.TTF")]
-    FontRoman,
-    /// EPL2 font 1
-    #[strum(serialize = "1.EFT")]
-    FontEpl1,
-    /// EPL2 font 2
-    #[strum(serialize = "2.EFT")]
-    FontEpl2,
-    /// EPL2 font 3
-    #[strum(serialize = "3.RFT")]
-    FontEpl3,
-    /// EPL2 font 4
-    #[strum(serialize = "4.EFT")]
-    FontEpl4,
-    /// EPL2 font 5
-    #[strum(serialize = "5.EFT")]
-    FontEpl5,
-    /// ZPL2 font A
-    #[strum(serialize = "A.FNT")]
-    FontZplA,
-    /// ZPL2 font A
-    #[strum(serialize = "B.FNT")]
-    FontZplB,
-    /// ZPL2 font D
-    #[strum(serialize = "D.FNT")]
-    FontZplD,
-    /// ZPL2 font E8
-    #[strum(serialize = "E8.FNT")]
-    FontZplE8,
-    /// ZPL2 font F
-    #[strum(serialize = "F.FNT")]
-    FontZplF,
-    /// ZPL2 font G
-    #[strum(serialize = "G.FNT")]
-    FontZplG,
-    /// ZPL2 font H8
-    #[strum(serialize = "H8.FNT")]
-    FontZplH8,
-    /// ZPL2 font GS
-    #[strum(serialize = "GS.FNT")]
-    FontZplGs,
-}
-
-#[derive(Debug, Display)]
-pub enum HumanReadable {
-    #[strum(serialize = "0")]
-    NotReadable = 0,
-    #[strum(serialize = "1")]
-    ReadableAlignsToLeft = 1,
-    #[strum(serialize = "2")]
-    ReadableAlignsToCenter = 2,
-    #[strum(serialize = "3")]
-    ReadableAlignsToRight = 3,
-}
-
-/// Clockwise rotation
-#[derive(Debug, Display)]
-pub enum Rotation {
-    #[strum(serialize = "0")]
-    NoRotation = 0,
-    #[strum(serialize = "90")]
-    Rotation90 = 90,
-    #[strum(serialize = "180")]
-    Rotation180 = 180,
-    #[strum(serialize = "270")]
-    Rotation270 = 270,
-}
-
-#[derive(Debug, Display)]
-pub enum Alignment {
-    #[strum(serialize = "0")]
-    Default = 0,
-    #[strum(serialize = "1")]
-    Left = 1,
-    #[strum(serialize = "2")]
-    Center = 2,
-    #[strum(serialize = "3")]
-    Right = 3,
-}
-
-/// Specifies width in dots for narrow and wide elements respectively.
-#[derive(Debug, Display)]
-pub enum NarrowWide {
-    #[strum(serialize = "1,1")]
-    N1W1,
-    #[strum(serialize = "1,2")]
-    N1W2,
-    #[strum(serialize = "1,3")]
-    N1W3,
-    #[strum(serialize = "2,5")]
-    N2W5,
-    #[strum(serialize = "3,7")]
-    N3W7,
-}
-
-#[derive(Debug, Display)]
-pub enum BitmapMode {
-    #[strum(serialize = "0")]
-    Overwrite = 0,
-    #[strum(serialize = "1")]
-    Or = 1,
-    #[strum(serialize = "2")]
-    Xor = 2,
-}
-
-#[derive(Debug, Display)]
-pub enum QrCodeJustification {
-    #[strum(serialize = "J1")]
-    UpperLeft,
-    #[strum(serialize = "J2")]
-    UpperCenter,
-    #[strum(serialize = "J3")]
-    UpperRight,
-    #[strum(serialize = "J4")]
-    CenterLeft,
-    #[strum(serialize = "J5")]
-    Center,
-    #[strum(serialize = "J6")]
-    CenterRight,
-    #[strum(serialize = "J7")]
-    BottomLeft,
-    #[strum(serialize = "J8")]
-    BottomCenter,
-    #[strum(serialize = "J9")]
-    BottomRight,
 }
 
 pub struct Printer {
@@ -576,32 +51,39 @@ impl Printer {
         Ok(printer)
     }
 
-    /// This command defines the label width and height.
-    /// Label length must be provided for firmware version <V8.13
-    fn size(&mut self, width: Size, height: Option<Size>) -> Result<&mut Self> {
-        let cmd = match height {
-            Some(height) => format!("SIZE {width},{height}\r\n"),
-            None => format!("SIZE {width}\r\n"),
-        };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-
+    fn write(&mut self, cmd: impl ToString) -> Result<&mut Self> {
+        let cmd = cmd.to_string() + "\r\n";
+        self.file
+            .write_all(cmd.as_bytes())
+            .map_err(|e| anyhow!(e))?;
         Ok(self)
     }
 
-    /// Defines the gap distance between two labels.
-    /// Optional offset distance of the gap may be provided
-    fn gap(&mut self, gap: Size, gap_offset: Option<Size>) -> Result<&mut Self> {
-        let cmd = match gap_offset {
-            Some(offset) => format!("GAP {gap},{offset}\r\n"),
-            None => format!("GAP {gap}\r\n"),
-        };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-
+    fn write_bytes(&mut self, mut cmd: Vec<u8>) -> Result<&mut Self> {
+        let crlf = b"\r\n";
+        cmd.extend(crlf);
+        self.file.write_all(&cmd).map_err(|e| anyhow!(e))?;
         Ok(self)
+    }
+
+    /// This command defines the label width and height.
+    /// Label length must be provided for firmware version <V8.13.
+    fn size(&mut self, width: Size, height: Option<Size>) -> Result<&mut Self> {
+        let cmd = height.map_or_else(
+            || format!("SIZE {width}"),
+            |height| format!("SIZE {width},{height}"),
+        );
+        self.write(cmd)
+    }
+
+    /// Defines the gap distance between two labels.
+    /// Optional offset distance of the gap may be provided.
+    fn gap(&mut self, gap: Size, gap_offset: Option<Size>) -> Result<&mut Self> {
+        let cmd = gap_offset.map_or_else(
+            || format!("GAP {gap}"),
+            |offset| format!("GAP {gap},{offset}"),
+        );
+        self.write(cmd)
     }
 
     /// This command feeds the paper through the gap sensor in an effort
@@ -616,17 +98,14 @@ impl Printer {
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
     pub fn gap_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
         let cmd = match calib {
-            Some((x, y)) => &format!(
-                "GAPDETECT {},{}\r\n",
+            Some((x, y)) => format!(
+                "GAPDETECT {},{}",
                 x.to_dots_raw(self.resolution),
                 y.to_dots_raw(self.resolution)
             ),
-            None => "GAPDETECT\r\n",
+            None => String::from("GAPDETECT"),
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command feeds the paper through the black mark sensor in an effort to determine
@@ -640,17 +119,14 @@ impl Printer {
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
     pub fn bline_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
         let cmd = match calib {
-            Some((x, y)) => &format!(
-                "BLINEDETECT {},{}\r\n",
+            Some((x, y)) => format!(
+                "BLINEDETECT {},{}",
                 x.to_dots_raw(self.resolution),
                 y.to_dots_raw(self.resolution)
             ),
-            None => "BLINEDETECT\r\n",
+            None => String::from("BLINEDETECT"),
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command feeds the paper through the gap/black mark sensor in an effort to determine
@@ -664,27 +140,21 @@ impl Printer {
     /// If the None is passed then the printer will calibrate and determine the paper length and gap size automatically.
     pub fn auto_detect(&mut self, calib: Option<(Size, Size)>) -> Result<&mut Self> {
         let cmd = match calib {
-            Some((x, y)) => &format!(
-                "AUTODETECT {},{}\r\n",
+            Some((x, y)) => format!(
+                "AUTODETECT {},{}",
                 x.to_dots_raw(self.resolution),
                 y.to_dots_raw(self.resolution)
             ),
-            None => "AUTODETECT\r\n",
+            None => String::from("AUTODETECT"),
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command sets the height of the black line and the user-defined extra label feeding length each form feed takes.
-    /// Both parameters should be in the same measurement type (mm/inch/dot)
+    /// Both parameters should be in the same measurement type (mm/inch/dot).
     pub fn bline(&mut self, black_line_height: Size, extra_feeding_len: Size) -> Result<&mut Self> {
-        let cmd = format!("BLINE {black_line_height},{extra_feeding_len}\r\n");
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = format!("BLINE {black_line_height},{extra_feeding_len}");
+        self.write(cmd)
     }
 
     /// This command defines the selective, extra label feeding length each form feed takes, which,
@@ -692,31 +162,24 @@ impl Printer {
     /// so as for label to register at proper places for the intended purposes.
     /// The printer back tracks the extra feeding length before the next run of printing.
     pub fn offset(&mut self, offset: Size) -> Result<&mut Self> {
-        let cmd = format!("OFFSET {offset}\r\n");
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = format!("OFFSET {offset}");
+        self.write(cmd)
     }
 
     /// This command defines the print speed.
-    /// Available speeds in inch/sec should be checked for your printer model
+    /// Available speeds in inch/sec should be checked for your printer model.
     pub fn speed(&mut self, speed: &str) -> Result<&mut Self> {
-        let cmd = format!("SPEED {speed}\r\n");
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = format!("SPEED {speed}");
+        self.write(cmd)
     }
 
     /// This command sets the printing darkness from lightest(0) to darkest(15). Default density is 8.
     pub fn density(&mut self, density: u8) -> Result<&mut Self> {
         let cmd = match density {
-            1..=15 => format!("DENSITY {density}\r\n"),
+            1..=15 => format!("DENSITY {density}"),
             _ => return Err(anyhow!("Density should be in range 0..15")),
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command defines the printout direction and mirror image. This will be stored in the printer memory.
@@ -726,26 +189,20 @@ impl Printer {
         mirrored_image: bool,
     ) -> Result<&mut Self> {
         let cmd = format!(
-            "DIRECTION {},{}\r\n",
+            "DIRECTION {},{}",
             reversed_direction as u8, mirrored_image as u8
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command defines the reference point of the label. The reference (origin) point varies with the print direction.
     pub fn reference(&mut self, x: Size, y: Size) -> Result<&mut Self> {
         let cmd = format!(
-            "REFERENCE {},{}\r\n",
+            "REFERENCE {},{}",
             x.to_dots_raw(self.resolution),
             y.to_dots_raw(self.resolution)
         );
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command moves the label’s horizontal and vertical position. A positive value moves the label
@@ -753,113 +210,91 @@ impl Printer {
     pub fn shift(&mut self, x: Option<Size>, y: Size) -> Result<&mut Self> {
         let cmd = match x {
             Some(x) => format!(
-                "SHIFT {},{}\r\n",
+                "SHIFT {},{}",
                 x.to_dots_raw(self.resolution),
                 y.to_dots_raw(self.resolution)
             ),
-            None => format!("SHIFT {}\r\n", y.to_dots_raw(self.resolution)),
+            None => format!("SHIFT {}", y.to_dots_raw(self.resolution)),
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command orients the keyboard for use in different countries via
     /// defining special characters on the KP-200 series portable LCD keyboard (option).
     pub fn country(&mut self, country: Country) -> Result<&mut Self> {
-        let cmd = format!("COUNTRY {:03}\r\n", country as u16);
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = format!("COUNTRY {:03}", country as u16);
+        self.write(cmd)
     }
 
     /// This command defines the code page of international character set.
     pub fn codepage(&mut self, codepage: Codepage) -> Result<&mut Self> {
-        let cmd = format!("CODEPAGE {codepage}\r\n");
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = format!("CODEPAGE {codepage}");
+        self.write(cmd)
     }
 
     /// This command clears the image buffer.
     pub fn cls(&mut self) -> Result<&mut Self> {
-        let cmd = "CLS\r\n";
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = "CLS";
+        self.write(cmd)
     }
 
-    /// This command feeds label with the specified length
+    /// This command feeds label with the specified length.
     pub fn feed(&mut self, feed: Size) -> Result<&mut Self> {
         let feed_dot = feed.to_dots_raw(self.resolution);
         let cmd = match feed_dot {
-            0..=9999 => format!("FEED {feed_dot}\r\n"),
+            0..=9999 => format!("FEED {feed_dot}"),
             _ => {
                 return Err(anyhow!(
-                    "feed length must be in range 0..9999 in dots, got {:?}",
-                    feed_dot
+                    "feed length must be in range 0..9999 in dots, got {feed_dot}"
                 ))
             }
         };
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command feeds the label in reverse.
-    /// For TSPL printers only
+    /// For TSPL printers only.
     pub fn backup(&mut self, feed: Size) -> Result<&mut Self> {
         let feed_dot = feed.to_dots_raw(self.resolution);
         let cmd = match feed_dot {
-            0..=9999 => format!("BACKUP {feed_dot}\r\n"),
+            0..=9999 => format!("BACKUP {feed_dot}"),
             _ => {
                 return Err(anyhow!(
-                    "backup length must be in range 0..9999, got {:?}",
-                    feed_dot
+                    "backup length must be in range 0..9999, got {feed_dot}"
                 ))
             }
         };
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command feeds the label in reverse. The length is specified by dot.
-    /// For TSPL2 printers only
+    /// For TSPL2 printers only.
     pub fn backfeed(&mut self, feed: Size) -> Result<&mut Self> {
         let feed_dot = feed.to_dots_raw(self.resolution);
         let cmd = match feed_dot {
-            0..=9999 => format!("BACKFEED {feed_dot}\r\n"),
+            0..=9999 => format!("BACKFEED {feed_dot}"),
             _ => {
                 return Err(anyhow!(
-                    "backfeed length must be in range 0..9999, got {:?}",
-                    feed_dot
+                    "backfeed length must be in range 0..9999, got {feed_dot}"
                 ))
             }
         };
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command feeds label to the beginning of next label.
     pub fn formfeed(&mut self) -> Result<&mut Self> {
-        let cmd = "FORMFEED\r\n";
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = "FORMFEED";
+        self.write(cmd)
     }
 
     /// This command will feed label until the internal sensor has determined the origin.
     /// Size and gap of the label should be defined before using this command.
     /// For TSPL programming printer: Back label to origin position.
-    /// For TSPL2 programming printer: Feed label to origin position
+    /// For TSPL2 programming printer: Feed label to origin position.
     pub fn home(&mut self) -> Result<&mut Self> {
-        let cmd = "HOME\r\n";
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = "HOME";
+        self.write(cmd)
     }
 
     /// This command prints the label format currently stored in the image buffer.
@@ -868,50 +303,41 @@ impl Printer {
             1..=999999999 => {
                 if let Some(copies) = copies {
                     match copies {
-                        1..=999999999 => format!("PRINT {sets},{copies}\r\n"),
+                        1..=999999999 => format!("PRINT {sets},{copies}"),
                         _ => {
                             return Err(anyhow!(
-                                "Copies qty must be in range 1..999999999, got {:?}",
-                                copies
+                                "Copies qty must be in range 1..999999999, got {copies}"
                             ))
                         }
                     }
                 } else {
-                    format!("PRINT {sets}\r\n")
+                    format!("PRINT {sets}")
                 }
             }
             _ => {
                 return Err(anyhow!(
-                    "Sets qty must be in range 1..999999999, got {:?}",
-                    sets
+                    "Sets qty must be in range 1..999999999, got {sets}"
                 ))
             }
         };
 
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command controls the sound frequency of the beeper. There are 10 levels of sounds, from 0 to 9.
-    /// The timing control can be set by the "interval" parameter, in range 1..4095
+    /// The timing control can be set by the "interval" parameter, in range 1..4095.
     pub fn sound(&mut self, level: u8, interval: u16) -> Result<&mut Self> {
         let cmd = match (level, interval) {
-            (0..=9, 1..=4095) => format!("SOUND {level},{interval}\r\n"),
+            (0..=9, 1..=4095) => format!("SOUND {level},{interval}"),
             _ => return Err(anyhow!("wrong sound parameters")),
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command activates the cutter to immediately cut the labels without back feeding the label.
     pub fn cut(&mut self) -> Result<&mut Self> {
-        let cmd = "CUT\r\n";
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = "CUT";
+        self.write(cmd)
     }
 
     /// If the gap sensor is not set to a suitable sensitivity while feeding labels,
@@ -930,38 +356,28 @@ impl Printer {
         minpaper_maxgap: Option<(Size, Size)>,
     ) -> Result<&mut Self> {
         let cmd = match minpaper_maxgap {
-            Some((x, y)) => format!("LIMITFEED {n},{x},{y}\r\n"),
-            None => format!("LIMITFEED {n}\r\n"),
+            Some((x, y)) => format!("LIMITFEED {n},{x},{y}"),
+            None => format!("LIMITFEED {n}"),
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-
-        Ok(self)
+        self.write(cmd)
     }
 
     /// At this command, the printer will print out the printer information.
     pub fn selftest(&mut self, test_kind: Selftest) -> Result<&mut Self> {
-        let cmd = format!("SELFTEST {test_kind}\r\n");
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = format!("SELFTEST {test_kind}");
+        self.write(cmd)
     }
 
     /// Let the printer wait until process of commands (before EOJ) be finished then go on the next command.
     pub fn eoj(&mut self) -> Result<&mut Self> {
-        let cmd = "EOJ\r\n";
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = "EOJ";
+        self.write(cmd)
     }
 
     /// Let the printer wait specific period of time then go on next command.
     pub fn delay(&mut self, delay: std::time::Duration) -> Result<&mut Self> {
-        let cmd = format!("DELAY {}\r\n", delay.as_millis());
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = format!("DELAY {}", delay.as_millis());
+        self.write(cmd)
     }
 
     /// This command can show the image, which is in printer’s image buffer, on LCD panel.
@@ -971,10 +387,8 @@ impl Printer {
 
     /// This command can restore printer settings to defaults.
     pub fn initial_printer(&mut self) -> Result<&mut Self> {
-        let cmd = "INITIALPRINTER\r\n";
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        let cmd = "INITIALPRINTER";
+        self.write(cmd)
     }
 
     /// This command can design user's own menu with a database resident on the printer.
@@ -991,15 +405,13 @@ impl Printer {
         height: Size,
     ) -> Result<&mut Self> {
         let cmd = format!(
-            "BAR {},{},{},{}\r\n",
+            "BAR {},{},{},{}",
             x_upper_left.to_dots_raw(self.resolution),
             y_upper_left.to_dots_raw(self.resolution),
             width.to_dots_raw(self.resolution),
             height.to_dots_raw(self.resolution)
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command prints 1D barcodes.
@@ -1017,7 +429,7 @@ impl Printer {
     ) -> Result<&mut Self> {
         let cmd = if let Some(alignment) = alignment {
             format!(
-                "BARCODE {},{},\"{}\",{},{},{},{},{}, \"{}\"\r\n",
+                "BARCODE {},{},\"{}\",{},{},{},{},{}, \"{}\"",
                 x.to_dots_raw(self.resolution),
                 y.to_dots_raw(self.resolution),
                 code_type,
@@ -1030,7 +442,7 @@ impl Printer {
             )
         } else {
             format!(
-                "BARCODE {},{},\"{}\",{},{},{},{}, \"{}\"\r\n",
+                "BARCODE {},{},\"{}\",{},{},{},{}, \"{}\"",
                 x.to_dots_raw(self.resolution),
                 y.to_dots_raw(self.resolution),
                 code_type,
@@ -1041,10 +453,7 @@ impl Printer {
                 content
             )
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command draws TLC39, TCIF Linked Bar Code 3 of 9, barcode.
@@ -1077,7 +486,7 @@ impl Printer {
             .to_dots_raw(self.resolution);
 
         let cmd = format!(
-            "TLC39 {},{},{},{},{},{},{},{}, \"{},{},{}\"\r\n",
+            "TLC39 {},{},{},{},{},{},{},{}, \"{},{},{}\"",
             x,
             y,
             rotate,
@@ -1090,9 +499,7 @@ impl Printer {
             serial_number,
             additional_data
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command draws bitmap images (as opposed to BMP graphic files).
@@ -1105,7 +512,6 @@ impl Printer {
         mode: BitmapMode,
         bitmap_data: Vec<u8>,
     ) -> Result<&mut Self> {
-        let crlf = vec![b'\r', b'\n'];
         let mut cmd = format!(
             "BITMAP {},{},{},{},{},",
             x.to_dots_raw(self.resolution),
@@ -1117,11 +523,7 @@ impl Printer {
         .as_bytes()
         .to_vec();
         cmd.extend(bitmap_data);
-        cmd.extend(crlf);
-
-        self.file.write_all(&cmd)?;
-
-        Ok(self)
+        self.write_bytes(cmd)
     }
 
     /// This command draws rectangles on the label.
@@ -1135,7 +537,7 @@ impl Printer {
         radius: Option<Size>,
     ) -> Result<&mut Self> {
         let cmd = format!(
-            "BOX {},{},{},{},{},{}\r\n",
+            "BOX {},{},{},{},{},{}",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
             x_end.to_dots_raw(self.resolution),
@@ -1143,10 +545,7 @@ impl Printer {
             thickness.to_dots_raw(self.resolution),
             radius.unwrap_or(Size::Dots(0)).to_dots_raw(self.resolution)
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command draws a circle on the label.
@@ -1158,15 +557,13 @@ impl Printer {
         thickness: Size,
     ) -> Result<&mut Self> {
         let cmd = format!(
-            "CIRCLE {},{},{},{}\r\n",
+            "CIRCLE {},{},{},{}",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
             diameter.to_dots_raw(self.resolution),
             thickness.to_dots_raw(self.resolution)
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command draws an ellipse on the label.
@@ -1179,16 +576,14 @@ impl Printer {
         thickness: Size,
     ) -> Result<&mut Self> {
         let cmd = format!(
-            "ELLIPSE {},{},{},{},{}\r\n",
+            "ELLIPSE {},{},{},{},{}",
             x_upper_left.to_dots_raw(self.resolution),
             y_upper_left.to_dots_raw(self.resolution),
             width.to_dots_raw(self.resolution),
             height.to_dots_raw(self.resolution),
             thickness.to_dots_raw(self.resolution)
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command draws CODABLOCK F mode barcode.
@@ -1209,7 +604,7 @@ impl Printer {
             .to_dots_raw(self.resolution);
 
         let cmd = format!(
-            "CODABLOCK {},{},{},{},{},\"{}\"\r\n",
+            "CODABLOCK {},{},{},{},{},\"{}\"",
             x.to_dots_raw(self.resolution),
             y.to_dots_raw(self.resolution),
             rotate,
@@ -1217,10 +612,7 @@ impl Printer {
             module_width,
             content
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command defines a DataMatrix 2D bar code. Currently, only ECC200 error correction is supported.
@@ -1284,25 +676,21 @@ impl Printer {
             }
         }
 
-        cmd.push_str(&format!(" \"{}\"\r\n", content));
+        cmd.push_str(&format!(" \"{content}\""));
 
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command clears a specified region in the image buffer.
     pub fn erase(&mut self, x: Size, y: Size, width: Size, height: Size) -> Result<&mut Self> {
         let cmd = format!(
-            "ERASE {},{},{},{}\r\n",
+            "ERASE {},{},{},{}",
             x.to_dots_raw(self.resolution),
             y.to_dots_raw(self.resolution),
             width.to_dots_raw(self.resolution),
             height.to_dots_raw(self.resolution)
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command defines a PDF417 2D bar code.
@@ -1316,7 +704,7 @@ impl Printer {
         content: &str,
     ) -> Result<&mut Self> {
         let cmd = format!(
-            "PDF417 {},{},{},{},{},\"{}\"\r\n",
+            "PDF417 {},{},{},{},{},\"{}\"",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
             width.to_dots_raw(self.resolution),
@@ -1324,9 +712,7 @@ impl Printer {
             rotate,
             content
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command defines a AZTEC 2D bar code.
@@ -1354,7 +740,7 @@ impl Printer {
         }
 
         let cmd = format!(
-            "AZTEC {},{},{},{},{},{},{},{},{},{},{}\r\n",
+            "AZTEC {},{},{},{},{},{},{},{},{},{},{}",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
             rotate,
@@ -1364,13 +750,10 @@ impl Printer {
             menu as u8,
             multi,
             reversed as u8,
-            content.as_bytes().len(),
+            content.len(),
             content
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command defines a Micro PDF 417 bar code.
@@ -1384,13 +767,10 @@ impl Printer {
         col_num: Option<usize>,
         content: &str,
     ) -> Result<&mut Self> {
-        let col_num = match col_num {
-            Some(x) => match x {
-                1..=4 => x,
-                _ => 0,
-            },
+        let col_num = col_num.map_or(0, |x| match x {
+            1..=4 => x,
             _ => 0,
-        };
+        });
 
         let module_width = module_width
             .unwrap_or(Size::Dots(1))
@@ -1400,7 +780,7 @@ impl Printer {
             .to_dots_raw(self.resolution);
 
         let cmd = format!(
-            "MPDF417 {},{},{},{},{},{}, \"{}\"\r\n",
+            "MPDF417 {},{},{},{},{},{}, \"{}\"",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
             rotate,
@@ -1409,10 +789,7 @@ impl Printer {
             col_num,
             content,
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command prints QR code.
@@ -1438,7 +815,7 @@ impl Printer {
 
         let cmd = match justification {
             Some(justification) => format!(
-                "QRCODE {},{},{},{},A,{},{},\"{}\"\r\n",
+                "QRCODE {},{},{},{},A,{},{},\"{}\"",
                 x_upper_left.to_dots_raw(self.resolution),
                 y_upper_left.to_dots_raw(self.resolution),
                 ecc_level,
@@ -1448,7 +825,7 @@ impl Printer {
                 content
             ),
             None => format!(
-                "QRCODE {},{},{},{},A,{},\"{}\"\r\n",
+                "QRCODE {},{},{},{},A,{},\"{}\"",
                 x_upper_left.to_dots_raw(self.resolution),
                 y_upper_left.to_dots_raw(self.resolution),
                 ecc_level,
@@ -1457,13 +834,10 @@ impl Printer {
                 content
             ),
         };
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
-    /// This command is used to draw a RSS bar code on the label format
+    /// This command is used to draw a RSS bar code on the label format.
     pub fn rss(
         &mut self,
         x_upper_left: Size,
@@ -1492,7 +866,7 @@ impl Printer {
                         return Err(anyhow!("Wrong segment width. 2 to 22 accepted"));
                     }
                     format!(
-                        "RSS {},{}, \"{}\",{},{},{},{}, \"{}\"\r\n",
+                        "RSS {},{}, \"{}\",{},{},{},{}, \"{}\"",
                         x_upper_left.to_dots_raw(self.resolution),
                         y_upper_left.to_dots_raw(self.resolution),
                         rss_type,
@@ -1511,7 +885,7 @@ impl Printer {
                         return Err(anyhow!("Wrong line height. 1 to 500 accepted"));
                     }
                     format!(
-                        "RSS {},{}, \"{}\",{},{},{},{}, \"{}\"\r\n",
+                        "RSS {},{}, \"{}\",{},{},{},{}, \"{}\"",
                         x_upper_left.to_dots_raw(self.resolution),
                         y_upper_left.to_dots_raw(self.resolution),
                         rss_type,
@@ -1526,7 +900,7 @@ impl Printer {
             },
             _ => {
                 format!(
-                    "RSS {},{}, \"{}\",{},{},{}, \"{}\"\r\n",
+                    "RSS {},{}, \"{}\",{},{},{}, \"{}\"",
                     x_upper_left.to_dots_raw(self.resolution),
                     y_upper_left.to_dots_raw(self.resolution),
                     rss_type,
@@ -1537,9 +911,7 @@ impl Printer {
                 )
             }
         };
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command reverses a region in image buffer.
@@ -1551,15 +923,13 @@ impl Printer {
         height: Size,
     ) -> Result<&mut Self> {
         let cmd = format!(
-            "REVERSE {},{},{},{}\r\n",
+            "REVERSE {},{},{},{}",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
             width.to_dots_raw(self.resolution),
             height.to_dots_raw(self.resolution)
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     /// This command is used to draw a diagonal.
@@ -1572,16 +942,14 @@ impl Printer {
         thickness: Size,
     ) -> Result<&mut Self> {
         let cmd = format!(
-            "DIAGONAL {},{},{},{},{}\r\n",
+            "DIAGONAL {},{},{},{},{}",
             x_start.to_dots_raw(self.resolution),
             y_start.to_dots_raw(self.resolution),
             x_end.to_dots_raw(self.resolution),
             y_end.to_dots_raw(self.resolution),
             thickness.to_dots_raw(self.resolution)
         );
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     pub fn text(
@@ -1600,7 +968,7 @@ impl Printer {
         }
         let cmd = match alignment {
             Some(alignment) => format!(
-                "TEXT {},{},\"{}\",{},{},{},{}, \"{}\"\r\n",
+                "TEXT {},{},\"{}\",{},{},{},{}, \"{}\"",
                 x.to_dots_raw(self.resolution),
                 y.to_dots_raw(self.resolution),
                 font,
@@ -1611,7 +979,7 @@ impl Printer {
                 content
             ),
             None => format!(
-                "TEXT {},{},\"{}\",{},{},{}, \"{}\"\r\n",
+                "TEXT {},{},\"{}\",{},{},{}, \"{}\"",
                 x.to_dots_raw(self.resolution),
                 y.to_dots_raw(self.resolution),
                 font,
@@ -1621,9 +989,7 @@ impl Printer {
                 content
             ),
         };
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        self.write(cmd)
     }
 
     pub fn block(
@@ -1672,10 +1038,7 @@ impl Printer {
             cmd.push_str(&format!("{},", fit as u8));
         }
 
-        cmd.push_str(&format!("\"{}\"\r\n", content));
-
-        debug!("{cmd}");
-        self.file.write_all(cmd.as_bytes())?;
-        Ok(self)
+        cmd.push_str(&format!("\"{}\"", content));
+        self.write(cmd)
     }
 }
